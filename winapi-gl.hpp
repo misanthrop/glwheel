@@ -123,7 +123,7 @@ namespace wheel
 		}
 
 		point pointer() const { return m; }
-		void process(int timeout = -1) { events.process(timeout); }
+		void process(int timeout = -1) { if(!children.empty()) events.process(timeout); }
 		inline static LRESULT __stdcall wndproc(HWND wnd, UINT msg, WPARAM wp, LPARAM lp);
 	};
 
@@ -165,7 +165,7 @@ namespace wheel
 			DestroyWindow(wnd);
 		}
 
-		void show(bool b) { ShowWindow(wnd, b ? SW_SHOW:SW_SHOWMINIMIZED); }
+		void show(bool b) { ShowWindow(wnd, b ? SW_SHOWMAXIMIZED:SW_SHOWMINIMIZED); }
 
 		void fullscreen(bool b)
 		{
@@ -193,7 +193,7 @@ namespace wheel
 		switch(msg)
 		{
 			case WM_CREATE: SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG_PTR)((CREATESTRUCT*)lp)->lpCreateParams); return 0;
-			case WM_DESTROY: w->close(); return 0;
+			case WM_DESTROY: return 0;
 			case WM_CLOSE: w->close(); break;
 			case WM_PAINT: return 0;
 

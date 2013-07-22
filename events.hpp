@@ -33,7 +33,7 @@ namespace wheel
 				if(r == n)
 				{
 					MSG msg;
-					if(GetMessage(&msg, 0, 0, 0))
+					if(PeekMessage(&msg, 0, 0, 0, PM_REMOVE))
 					{
 						if(msg.message == WM_QUIT) break;
 						TranslateMessage(&msg);

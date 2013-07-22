@@ -10,9 +10,9 @@ ifeq ($(os),Linux)
 	libs	   += GL X11
 else ifeq ($(os),Windows)
 	target	 := $(target).exe
-	libs	 += glew32 gdi32 opengl32 ws2_32
-	CXXFLAGS += -D_WIN32_WINNT=0x0500 -DUNICODE -DGLEW_STATIC
-	LDFLAGS  += -static -Xlinker -subsystem=windows
+	libs	 += glew32 gdi32 opengl32
+	CXXFLAGS += -D_WIN32_WINNT=0x0500 -DUNICODE
+	LDFLAGS  += -Xlinker -subsystem=windows
 endif
 
 ifeq ($(CDEBUG),-g)
