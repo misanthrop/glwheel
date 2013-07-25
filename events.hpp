@@ -2,9 +2,12 @@
 #include <vector>
 #include <functional>
 #include <iostream>
-#ifdef _WIN32
+#if defined(_WIN32)
 	#include <windows.h>
 	typedef HANDLE pollfd; // :(
+#elif defined(ANDROID)
+	#include <sys/poll.h>
+	inline bool operator==(const pollfd& a, const pollfd& b) { return a.fd == b.fd; }
 #else
 	#include <sys/poll.h>
 	inline bool operator==(const pollfd& a, const pollfd& b) { return a.fd == b.fd; }

@@ -23,13 +23,9 @@ struct example : window
 
 	void draw()
 	{
+		glClearColor((float)pointer().x/width(), 0, (float)pointer().y/height(), 1);
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
 		glViewport(0,0,width(),height());
-		glBegin(GL_TRIANGLES);
-		glColor3f(1.0, 0.0, 0.0); glVertex2i(-1, -1);
-		glColor3f(0.0, 1.0, 0.0); glVertex2i(1, -1);
-		glColor3f(0.0, 0.0, 1.0); glVertex2f(x, y);
-		glEnd();
 		flip();
 	}
 };
