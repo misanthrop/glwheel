@@ -23,6 +23,7 @@ struct example : window
 
 	void draw()
 	{
+//		LOGI("%d %d %d %d", p.x, p.y, width(), height());
 		glClearColor((float)pointer().x/width(), 0, (float)pointer().y/height(), 1);
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
 		glViewport(0,0,width(),height());
@@ -35,7 +36,7 @@ int main()
 	application app;
 	example wnd(app);
 	wnd.show(true);
-	while(!app.children.empty())	// while have windows
+	while(app)						// while have windows
 	{
 		wnd.update();				// does nothing by default
 		wnd.draw();					// clear, draw children, swap buffers

@@ -41,6 +41,8 @@ namespace wheel
 			if(ctx) { glXMakeCurrent(dpy, 0, 0); glXDestroyContext(dpy, ctx); }
 		}
 
+		operator bool() const { return !children.empty(); }
+
 		int width() const { return rect::width(); }
 		int height() const { return rect::height(); }
 		point pointer() const { return m; }
@@ -54,54 +56,57 @@ namespace wheel
 		inline void nextevent();
 	};
 
-	struct window : widget
+	namespace native
 	{
-		bool active;
-		Window wnd;
-
-		operator Window() const { return wnd; }
-		application& app() { return *(application*)parent; }
-
-		window(application& app, const char *title, int w = 0, int h = 0)
+		struct window : widget
 		{
-			XSetWindowAttributes wa;
-			wa.border_pixel = 0;
-			wa.colormap = XCreateColormap(app, app.root(), app.vis, AllocNone);
-			wa.event_mask = KeyPressMask|KeyReleaseMask|PointerMotionMask|ButtonPressMask|ButtonReleaseMask|
-				StructureNotifyMask|ExposureMask|FocusChangeMask|VisibilityChangeMask;
+			bool active;
+			Window wnd;
 
-			if(!w) w = app.width();
-			if(!h) h = app.height();
-			wnd = XCreateWindow(app, app.root(), 0,0,w,h, 0, app.depth(), InputOutput, app.vis, CWBorderPixel|CWColormap|CWEventMask, &wa);
-			if(!wnd) throw std::runtime_error("Failed to create window");
-			set(0,0,w,h);
+			operator Window() const { return wnd; }
+			application& app() { return *(application*)parent; }
 
-			XChangeProperty(app, wnd, app.atom["_NET_WM_NAME"], app.atom["UTF8_STRING"], 8, PropModeReplace, (uint8_t*)title, strlen(title));
-			XSetWMProtocols(app, wnd, &app.atom["WM_DELETE_WINDOW"], 1);
+			window(application& app, const char *title, int w = 0, int h = 0)
+			{
+				XSetWindowAttributes wa;
+				wa.border_pixel = 0;
+				wa.colormap = XCreateColormap(app, app.root(), app.vis, AllocNone);
+				wa.event_mask = KeyPressMask|KeyReleaseMask|PointerMotionMask|ButtonPressMask|ButtonReleaseMask|
+					StructureNotifyMask|ExposureMask|FocusChangeMask|VisibilityChangeMask;
 
-			parent = &app;
-			app.children.push_back(this);
-		}
+				if(!w) w = app.width();
+				if(!h) h = app.height();
+				wnd = XCreateWindow(app, app.root(), 0,0,w,h, 0, app.depth(), InputOutput, app.vis, CWBorderPixel|CWColormap|CWEventMask, &wa);
+				if(!wnd) throw std::runtime_error("Failed to create window");
+				set(0,0,w,h);
 
-		void show(bool b) { if(b) { makecurrent(); XMapWindow(app(), wnd); } else { glXMakeCurrent(app(),0,0); XUnmapWindow(app(), wnd); } }
+				XChangeProperty(app, wnd, app.atom["_NET_WM_NAME"], app.atom["UTF8_STRING"], 8, PropModeReplace, (uint8_t*)title, strlen(title));
+				XSetWMProtocols(app, wnd, &app.atom["WM_DELETE_WINDOW"], 1);
 
-		void fullscreen(int b)
-		{
-			app().sendclient(wnd, app().atom["_NET_WM_STATE"], StructureNotifyMask, b, app().atom["_NET_WM_STATE_FULLSCREEN"]);
-		}
+				parent = &app;
+				app.children.push_back(this);
+			}
 
-		void togglefullscreen() { fullscreen(2); }
-		void makecurrent() { glXMakeCurrent(app(), wnd, app().ctx); }
-		void draw() { glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT); widget::draw(); flip(); }
-		void flip() { glXSwapBuffers(app(), wnd); }
-	};
+			void show(bool b) { if(b) { makecurrent(); XMapWindow(app(), wnd); } else { glXMakeCurrent(app(),0,0); XUnmapWindow(app(), wnd); } }
+
+			void fullscreen(int b)
+			{
+				app().sendclient(wnd, app().atom["_NET_WM_STATE"], StructureNotifyMask, b, app().atom["_NET_WM_STATE_FULLSCREEN"]);
+			}
+
+			void togglefullscreen() { fullscreen(2); }
+			void makecurrent() { glXMakeCurrent(app(), wnd, app().ctx); }
+			void draw() { glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT); widget::draw(); flip(); }
+			void flip() { glXSwapBuffers(app(), wnd); }
+		};
+	}
 
 	void application::nextevent()
 	{
 		XEvent event; XNextEvent(dpy, &event);
 		Window wnd = event.xany.window;
 		widget *w = 0;
-		if(wnd == root()) w = this; else for(widget *c : children) if(((window*)c)->wnd == wnd) { w = c; break; }
+		if(wnd == root()) w = this; else for(widget *c : children) if(((native::window*)c)->wnd == wnd) { w = c; break; }
 		if(w) switch(event.type)
 		{
 			case KeyPress:

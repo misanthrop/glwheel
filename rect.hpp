@@ -47,6 +47,9 @@ namespace wheel
 		bool operator>=(const point &v) const { return x >= v.x && y >= v.y; }
 
 		int operator~() const { return x*x + y*y; }
+
+		point& operator=(int v) { x = y = v; return *this; }
+		template<class t> point& operator=(const t& p) { x = p[0]; y = p[1]; return *this; }
 	};
 
 	struct rect
@@ -63,6 +66,8 @@ namespace wheel
 		void move(const point& t) { point sz = size(); p = t; q = p + sz; }
 		point pq() const { return point(p.x,q.y); }
 		point qp() const { return point(q.x,p.y); }
+		int x() const { return p.x; }
+		int y() const { return p.y; }
 		int width() const { return q.x - p.x; }
 		int height() const { return q.y - p.y; }
 		void set(int x, int y, int w, int h) { p = point(x,y); q = p + point(w,h); }
