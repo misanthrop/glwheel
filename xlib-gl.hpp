@@ -8,6 +8,7 @@
 #include "events.hpp"
 #include "utf.hpp"
 #include <cstring>
+#include <stdexcept>
 
 namespace wheel
 {
@@ -24,7 +25,7 @@ namespace wheel
 		application(uint8_t depth = 16, uint8_t stencil = 0, uint8_t r = 1, uint8_t g = 1, uint8_t b = 1, uint8_t a = 1) : atom(dpy)
 		{
 			set(0,0,DisplayWidth(dpy,screen()),DisplayHeight(dpy,screen()));
-			int attr[] = { GLX_RENDER_TYPE, GLX_RGBA_BIT, GLX_DRAWABLE_TYPE, GLX_WINDOW_BIT, GLX_DOUBLEBUFFER, True,
+			int attr[] = { GLX_RGBA, GLX_DOUBLEBUFFER, True,
 				GLX_RED_SIZE,r, GLX_GREEN_SIZE,g, GLX_BLUE_SIZE,b, GLX_ALPHA_SIZE,a, GLX_DEPTH_SIZE, depth, GLX_STENCIL_SIZE, stencil, 0 };
 			if(XVisualInfo *vi = glXChooseVisual(dpy, screen(), attr))
 			{
