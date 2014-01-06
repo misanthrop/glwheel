@@ -122,74 +122,81 @@ namespace wheel
 			RegisterClassEx(&wcex);
 		}
 
+		operator bool() const { return !children.empty(); }
+
+		int width() const { return rect::width(); }
+		int height() const { return rect::height(); }
 		point pointer() const { return m; }
 		void process(int timeout = -1) { if(!children.empty()) events.process(timeout); }
 		inline static LRESULT __stdcall wndproc(HWND wnd, UINT msg, WPARAM wp, LPARAM lp);
 	};
 
-	struct window : widget
+	namespace native
 	{
-		HWND wnd;
-		HDC dc;
-		HGLRC rc;
-		bool fs = 0;
-
-		operator HWND() const { return wnd; }
-		application& app() { return *(application*)parent; }
-
-		window(application& app, const char *title, int w = 0, int h = 0)
+		struct window : widget
 		{
-			if(!w) w = app.width();
-			if(!h) h = app.height();
-			RECT wr = {0,0,w,h}; AdjustWindowRectEx(&wr, WS_TILEDWINDOW, 0, 0);
-			w = wr.right - wr.left;
-			h = wr.bottom - wr.top;
-			size_t len = strlen(title);
-			wchar_t title16[len + 1];
-			*utf8to16(title, title + len, title16) = 0;
-			wnd = CreateWindowEx(0, classname, title16, WS_TILEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, w, h, 0, 0, app.inst, this);
-			dc = GetDC(wnd);
-			SetPixelFormat(dc, ChoosePixelFormat(dc, &app.pfd), &app.pfd);
-			rc = wglCreateContext(dc);
-			wglMakeCurrent(dc, rc);
-			glewInit();
-			parent = &app;
-			app.children.push_back(this);
-		}
+			HWND wnd;
+			HDC dc;
+			HGLRC rc;
+			bool fs = 0;
 
-		~window()
-		{
-			wglMakeCurrent(0, 0);
-			wglDeleteContext(rc);
-			ReleaseDC(wnd, dc);
-			DestroyWindow(wnd);
-		}
+			operator HWND() const { return wnd; }
+			application& app() { return *(application*)parent; }
 
-		void show(bool b) { ShowWindow(wnd, b ? SW_SHOWMAXIMIZED:SW_SHOWMINIMIZED); }
-
-		void fullscreen(bool b)
-		{
-			if((fs = b))
+			window(application& app, const char *title, int w = 0, int h = 0)
 			{
-				ShowWindow(wnd, SW_SHOWNORMAL);
-				ShowWindow(wnd, SW_SHOWMAXIMIZED);
+				if(!w) w = app.width();
+				if(!h) h = app.height();
+				RECT wr = {0,0,w,h}; AdjustWindowRectEx(&wr, WS_TILEDWINDOW, 0, 0);
+				w = wr.right - wr.left;
+				h = wr.bottom - wr.top;
+				size_t len = strlen(title);
+				wchar_t title16[len + 1];
+				*utf8to16(title, title + len, title16) = 0;
+				wnd = CreateWindowEx(0, classname, title16, WS_TILEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, w, h, 0, 0, app.inst, this);
+				dc = GetDC(wnd);
+				SetPixelFormat(dc, ChoosePixelFormat(dc, &app.pfd), &app.pfd);
+				rc = wglCreateContext(dc);
+				wglMakeCurrent(dc, rc);
+				glewInit();
+				parent = &app;
+				app.children.push_back(this);
 			}
-			else
-			{
-				SetWindowLong(wnd, GWL_STYLE, WS_TILEDWINDOW);
-				ShowWindow(wnd, SW_SHOWMAXIMIZED);
-			}
-		}
-		void togglefullscreen() { fullscreen(!fs); }
 
-		void makecurrent() { wglMakeCurrent(dc, rc); }
-		void draw() { glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT); widget::draw(); flip(); }
-		void flip() { SwapBuffers(dc); }
-	};
+			~window()
+			{
+				wglMakeCurrent(0, 0);
+				wglDeleteContext(rc);
+				ReleaseDC(wnd, dc);
+				DestroyWindow(wnd);
+			}
+
+			void show(bool b) { ShowWindow(wnd, b ? SW_SHOWMAXIMIZED:SW_SHOWMINIMIZED); }
+
+			void fullscreen(bool b)
+			{
+				if((fs = b))
+				{
+					ShowWindow(wnd, SW_SHOWNORMAL);
+					ShowWindow(wnd, SW_SHOWMAXIMIZED);
+				}
+				else
+				{
+					SetWindowLong(wnd, GWL_STYLE, WS_TILEDWINDOW);
+					ShowWindow(wnd, SW_SHOWMAXIMIZED);
+				}
+			}
+			void togglefullscreen() { fullscreen(!fs); }
+
+			void makecurrent() { wglMakeCurrent(dc, rc); }
+			void draw() { glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT); widget::draw(); flip(); }
+			void flip() { SwapBuffers(dc); }
+		};
+	}
 
 	LRESULT __stdcall application::wndproc(HWND wnd, UINT msg, WPARAM wp, LPARAM lp)
 	{
-		window* w = (window*)GetWindowLongPtr(wnd, GWLP_USERDATA);
+		native::window* w = (native::window*)GetWindowLongPtr(wnd, GWLP_USERDATA);
 		switch(msg)
 		{
 			case WM_CREATE: SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG_PTR)((CREATESTRUCT*)lp)->lpCreateParams); return 0;
