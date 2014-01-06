@@ -12,13 +12,14 @@ C++ header-only cross-platform OpenGL windowing and event handling.
 ## Features
 
 - Linux and Windows support
+- Initial Android support
 - Multiple file descriptor / handle event loop
 - Unicode support
 - Cross-platform make rules for GNU make (works with GCC and Clang)
 
 ## Planned soon
 
-- Android, iOS, Mac OS X, Blackberry support
+- iOS, Mac OS X, Blackberry support
 - File system notification support
 - Socket notification support
 
