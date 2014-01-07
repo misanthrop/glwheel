@@ -88,7 +88,7 @@ namespace wheel
 				app.children.push_back(this);
 			}
 
-			void show(bool b) { if(b) { makecurrent(); XMapWindow(app(), wnd); } else { glXMakeCurrent(app(),0,0); XUnmapWindow(app(), wnd); } }
+			void show(bool b) { if(b) { makecurrent(); XMapWindow(app(), wnd); XFlush(app());} else { glXMakeCurrent(app(),0,0); XUnmapWindow(app(), wnd); } }
 
 			void fullscreen(int b)
 			{
