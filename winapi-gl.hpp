@@ -202,7 +202,6 @@ namespace wheel
 			case WM_CREATE: SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG_PTR)((CREATESTRUCT*)lp)->lpCreateParams); return 0;
 			case WM_DESTROY: return 0;
 			case WM_CLOSE: w->close(); break;
-			case WM_PAINT: return 0;
 
 			case WM_ACTIVATE:
 				if(w->fs) w->show(wp != WA_INACTIVE);

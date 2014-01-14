@@ -30,13 +30,13 @@ namespace wheel
 		{
 		#ifdef _WIN32
 			DWORD r = 0;
-			while((r = MsgWaitForMultipleObjects(n, fds, false, timeout, QS_ALLEVENTS)) != WAIT_TIMEOUT)
+			while((r = MsgWaitForMultipleObjects(n, fds, false, timeout, QS_ALLINPUT|QS_ALLPOSTMESSAGE)) != WAIT_TIMEOUT)
 			{
 				if(r == WAIT_FAILED) { cerr << "MsgWaitForMultipleObjects() failed" << endl; return; }
 				if(r == n)
 				{
 					MSG msg;
-					if(PeekMessage(&msg, 0, 0, 0, PM_REMOVE))
+					while(PeekMessage(&msg, 0, 0, 0, PM_REMOVE))
 					{
 						if(msg.message == WM_QUIT) break;
 						TranslateMessage(&msg);
