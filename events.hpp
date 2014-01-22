@@ -50,7 +50,7 @@ namespace wheel
 			while(int r = poll(fds, n, timeout))
 			{
 				if(r < 0) { cerr << "poll() failed" << endl; return; }
-				for(int i = 0; i < n; ++i) if(fds[i].revents) fns[i](fds[i]);
+				for(int i = 0; i < n; ++i) if(fds[i].revents) { fns[i](fds[i]); fds[i].revents = 0; }
 				timeout = 0;
 			}
 		#endif
