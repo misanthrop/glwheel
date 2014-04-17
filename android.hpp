@@ -2,7 +2,9 @@
 #include <EGL/egl.h>
 #include <GLES/gl.h>
 #include <poll.h>
+#include <sys/stat.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -15,6 +17,8 @@
 #include <android/log.h>
 #include "widget.hpp"
 
+inline bool operator==(const pollfd& a, const pollfd& b) { return a.fd == b.fd; }
+
 extern int main();
 
 #define LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO, "app", __VA_ARGS__))
@@ -22,6 +26,52 @@ extern int main();
 
 namespace wheel
 {
+	struct eventloop
+	{
+		int n = 2;
+		ALooper *looper = ALooper_prepare(ALOOPER_PREPARE_ALLOW_NON_CALLBACKS);
+		pollfd fds[64];
+		function<void(pollfd)> fns[64];
+
+		void add(pollfd fd, function<void(pollfd)> fn)
+		{
+			int i = 2;
+			for(; i < n; ++i) if(!fns[i]) break;
+			if(i == n) ++n;
+			fds[i] = fd; fns[i] = fn;
+			ALooper_addFd(looper, fd.fd, i, ALOOPER_EVENT_INPUT, 0, 0);
+		}
+
+		void remove(pollfd fd)
+		{
+			int i = 2;
+			for(; i < n; ++i) if(fds[i] == fd) { fns[i] = 0; break; }
+			if(i == n-1) --n;
+			ALooper_removeFd(looper, fd.fd);
+		}
+
+		void add(AInputQueue *inputQueue, function<void(pollfd)> fn)
+		{
+			LOGI("AInputQueue_attachLooper");
+			fns[0] = fn;
+			AInputQueue_attachLooper(inputQueue, looper, 0, 0, 0);
+		}
+
+		void remove(AInputQueue *inputQueue)
+		{
+			LOGI("AInputQueue_detachLooper");
+			AInputQueue_detachLooper(inputQueue);
+			fns[0] = 0;
+		}
+
+		void process(int timeout)
+		{
+			//LOGI("process(%d)", timeout);
+			int i, events;
+			while((i = ALooper_pollAll(timeout, 0, &events, 0)) >= 0) { fns[i](fds[i]); timeout = 0; }
+		}
+	};
+
 	namespace android
 	{
 		constexpr const key::type key[] =
@@ -203,13 +253,32 @@ namespace wheel
 		inline void* onSaveInstanceState(ANativeActivity*, size_t*) { return 0; }
 	}
 
+	struct stream
+	{
+		AAsset *a = 0;
+
+		stream() {}
+		stream(const char *name) { open(name); }
+		stream(stream&& s) : a(s.a) { s.a = 0; }
+		stream(const stream&) = delete;
+		~stream() { if(a) AAsset_close(a); }
+
+		operator bool() const { return a; }
+		bool eof() const { return !remain(); }
+
+		void open(const char *name) { a = AAssetManager_open(android::act().a->assetManager, name, 0); }
+		int read(char *buf, size_t n) { return AAsset_read(a, buf, n); }
+		off_t seek(off_t off, int whence) { return AAsset_seek(a, off, whence); }
+		off_t length() const { return AAsset_getLength(a); }
+		off_t remain() const { return AAsset_getRemainingLength(a); }
+	};
+
 	struct application : widget
 	{
-		enum { main_id = 1, input_id, sensor_id }; // Looper ids
 		using cmd = android::activity::cmd;
 
 		AConfiguration *config = AConfiguration_new();
-		ALooper *looper = 0;
+		eventloop events;
 		AInputQueue *inputQueue = 0;
 		ANativeWindow *window = 0;
 
@@ -221,22 +290,23 @@ namespace wheel
 		EGLSurface surface;
 		EGLConfig glconfig;
 		point m;
-		bool alive = 1;
+		bool alive = 1, visible = 0;
 
 		application()
 		{
-			LOGI("fn()");
+			LOGI("application()");
 			android::act().a->instance = this;
 			AConfiguration_fromAssetManager(config, android::act().a->assetManager);
 
-			looper = ALooper_prepare(ALOOPER_PREPARE_ALLOW_NON_CALLBACKS);
-			ALooper_addFd(looper, android::act().msgpipe[0], main_id, ALOOPER_EVENT_INPUT, 0, 0);
+			events.add(pollfd{android::act().msgpipe[0]}, [&](pollfd) { processcmd(); });
 
 			eglInitialize(dpy, 0, 0);
 
 			uint8_t depth = 16, stencil = 0, r = 8, g = 8, b = 8, a = 8;
+
 			const EGLint attribs[] = { EGL_SURFACE_TYPE, EGL_WINDOW_BIT, EGL_DEPTH_SIZE, depth, EGL_STENCIL_SIZE, stencil,
 				EGL_RED_SIZE,r, EGL_GREEN_SIZE,g, EGL_BLUE_SIZE,b, EGL_ALPHA_SIZE,a, EGL_NONE };
+
 			EGLint numConfigs;
 			eglChooseConfig(dpy, attribs, &glconfig, 1, &numConfigs);
 
@@ -245,6 +315,34 @@ namespace wheel
 				android::act().running = 1;
 				android::act().cond.notify_all();
 			}
+
+			// I hate crap like the following
+			mkdir(android::act().a->internalDataPath,0770);
+			chdir(android::act().a->internalDataPath);
+			const char *dirs[] = { "textures", "scripts" };
+			for(const char *dirname : dirs) if(AAssetDir *dir = AAssetManager_openDir(android::act().a->assetManager, dirname))
+			{
+				mkdir(dirname,0770);
+				while(const char *fn = AAssetDir_getNextFileName(dir))
+				{
+					string spath = dirname;
+					if(spath.size()) spath += "/";
+					spath += fn;
+					const char *path = spath.c_str();
+					AAsset *a = AAssetManager_open(android::act().a->assetManager, path, AASSET_MODE_BUFFER);
+					int f = open(path, O_CREAT|O_TRUNC|O_WRONLY, 0660);
+					LOGI("%s", path);
+					LOGI("%d", f);
+					if(f != -1) write(f, AAsset_getBuffer(a), AAsset_getLength(a));
+					else LOGI("%s", strerror(errno));
+					::close(f);
+					AAsset_close(a);
+				}
+				AAssetDir_close(dir);
+			}
+
+			while(processcmd() != cmd::initwnd);
+			LOGI("go!");
 		}
 
 		~application()
@@ -262,139 +360,125 @@ namespace wheel
 		point pointer() const { return m; }
 		virtual void accel(float,float,float) {}
 
-		void process(int timeout = -1)
+		void process(int timeout = -1) { events.process(timeout); }
+
+		int8_t processcmd()
 		{
-			//events.process(timeout);
-			LOGI("process(%d)", timeout);
-			int ident, events;
-			while((ident = ALooper_pollAll(timeout, 0, &events, 0)) >= 0)
+			int8_t c = android::act().readcmd();
+			//LOGI("process_cmd(%d)", c);
+			switch(c)
 			{
-				switch(ident)
+				case cmd::inputchanged:
 				{
-					case main_id:
+					std::unique_lock<std::mutex> lock(android::act().mutex);
+					if(inputQueue) events.remove(inputQueue);
+					inputQueue = android::act().pendingInputQueue;
+					if(inputQueue) events.add(inputQueue, [&](pollfd) { processinput(); } );
+					android::act().cond.notify_all();
+					break;
+				}
+
+				case cmd::initwnd:
 					{
-						int8_t c = android::act().readcmd();
-						LOGI("process_cmd(%d)", c);
-						switch(c)
+						std::unique_lock<std::mutex> lock(android::act().mutex);
+						window = android::act().pendingWindow;
+						android::act().cond.notify_all();
+					}
+					if(window) initwnd();
+					break;
+
+				case cmd::termwnd:
+					{
+						std::unique_lock<std::mutex> lock(android::act().mutex);
+						window = 0;
+						android::act().cond.notify_all();
+					}
+					termwnd();
+					break;
+
+				case cmd::resume: case cmd::start: case cmd::pause: case cmd::stop:
+				{
+					std::unique_lock<std::mutex> lock(android::act().mutex);
+					android::act().state = c;
+					android::act().cond.notify_all();
+					break;
+				}
+
+				case cmd::focus:
+					if(accelerometer)
+					{
+						ASensorEventQueue_enableSensor(sensorEventQueue, accelerometer);
+						ASensorEventQueue_setEventRate(sensorEventQueue, accelerometer, (1000L/60)*1000);
+					}
+					visible = 1;
+					break;
+
+				case cmd::unfocus:
+					visible = 0;
+					if(accelerometer) ASensorEventQueue_disableSensor(sensorEventQueue, accelerometer);
+					break;
+
+				case cmd::cfgchanged:
+					AConfiguration_fromAssetManager(config, android::act().a->assetManager);
+					//print_cur_config(app);
+					break;
+
+				case cmd::destroy:
+					alive = 0;
+					break;
+
+				case cmd::save:
+				{
+					std::unique_lock<std::mutex> lock(android::act().mutex);
+					android::act().saved = 1;
+					android::act().cond.notify_all();
+					break;
+				}
+			}
+			return c;
+		}
+
+		void processinput()
+		{
+			AInputEvent* event = 0;
+			if(AInputQueue_getEvent(inputQueue, &event) >= 0)
+			{
+				if(AInputQueue_preDispatchEvent(inputQueue, event)) return;
+				bool processed = 0;
+				switch(AInputEvent_getType(event))
+				{
+					case AINPUT_EVENT_TYPE_KEY:
+						//LOGI("key %d", AKeyEvent_getKeyCode(event));
+						if(key::type k = android::key[AKeyEvent_getKeyCode(event)])
 						{
-							case cmd::inputchanged:
+							switch(AKeyEvent_getAction(event))
 							{
-								std::unique_lock<std::mutex> lock(android::act().mutex);
-								if(inputQueue)
-								{
-									LOGI("AInputQueue_detachLooper");
-									AInputQueue_detachLooper(inputQueue);
-								}
-								inputQueue = android::act().pendingInputQueue;
-								if(inputQueue)
-								{
-									LOGI("AInputQueue_attachLooper");
-									AInputQueue_attachLooper(inputQueue, looper, input_id, 0, 0);
-								}
-								android::act().cond.notify_all();
-								break;
+								case AKEY_EVENT_ACTION_DOWN: key::state(k) = 1; press(k); break;
+								case AKEY_EVENT_ACTION_UP: key::state(k) = 0; release(k); break;
 							}
-
-							case cmd::initwnd:
-								{
-									std::unique_lock<std::mutex> lock(android::act().mutex);
-									window = android::act().pendingWindow;
-									android::act().cond.notify_all();
-								}
-								if(window) initwnd();
-								break;
-
-							case cmd::termwnd:
-								{
-									std::unique_lock<std::mutex> lock(android::act().mutex);
-									window = 0;
-									android::act().cond.notify_all();
-								}
-								termwnd();
-								break;
-
-							case cmd::resume: case cmd::start: case cmd::pause: case cmd::stop:
-							{
-								std::unique_lock<std::mutex> lock(android::act().mutex);
-								android::act().state = c;
-								android::act().cond.notify_all();
-								break;
-							}
-
-							case cmd::focus:
-								if(accelerometer)
-								{
-									ASensorEventQueue_enableSensor(sensorEventQueue, accelerometer);
-									ASensorEventQueue_setEventRate(sensorEventQueue, accelerometer, (1000L/60)*1000);
-								}
-								break;
-
-							case cmd::unfocus:
-								if(accelerometer) ASensorEventQueue_disableSensor(sensorEventQueue, accelerometer);
-								break;
-
-							case cmd::cfgchanged:
-								AConfiguration_fromAssetManager(config, android::act().a->assetManager);
-								//print_cur_config(app);
-								break;
-
-							case cmd::destroy:
-								alive = 0;
-								break;
-
-							case cmd::save:
-							{
-								std::unique_lock<std::mutex> lock(android::act().mutex);
-								android::act().saved = 1;
-								android::act().cond.notify_all();
-								break;
-							}
+							processed = 1;
 						}
 						break;
-					}
 
-					case input_id:
-					{
-						AInputEvent* event = 0;
-						if(AInputQueue_getEvent(inputQueue, &event) >= 0)
-						{
-							if(AInputQueue_preDispatchEvent(inputQueue, event)) return;
-							bool processed = 0;
-							switch(AInputEvent_getType(event))
-							{
-								case AINPUT_EVENT_TYPE_KEY:
-									LOGI("key %d", AKeyEvent_getKeyCode(event));
-									if(key::type k = android::key[AKeyEvent_getKeyCode(event)])
-									{
-										key::state(k);
-										press(k);
-										processed = 1;
-									}
-									break;
-
-								case AINPUT_EVENT_TYPE_MOTION:
-									LOGI("motion");
-									m = point(AMotionEvent_getX(event, 0), AMotionEvent_getY(event, 0));
-									pointermove();
-									processed = 1;
-									break;
-							}
-							AInputQueue_finishEvent(inputQueue, event, processed);
-						}
-						else LOGE("Failure reading next input event: %s\n", strerror(errno));
-						break;
-					}
-
-					case sensor_id:
-						if(accelerometer)
-						{
-							ASensorEvent event;
-							while(ASensorEventQueue_getEvents(sensorEventQueue, &event, 1) > 0)
-								accel(event.acceleration.x, event.acceleration.y, event.acceleration.z);
-						}
+					case AINPUT_EVENT_TYPE_MOTION:
+						//LOGI("motion");
+						m = point(AMotionEvent_getX(event, 0), AMotionEvent_getY(event, 0));
+						pointermove();
+						processed = 1;
 						break;
 				}
-				timeout = 0;
+				AInputQueue_finishEvent(inputQueue, event, processed);
+			}
+			else LOGE("Failure reading next input event: %s\n", strerror(errno));
+		}
+
+		void processsensor()
+		{
+			if(accelerometer)
+			{
+				ASensorEvent event;
+				while(ASensorEventQueue_getEvents(sensorEventQueue, &event, 1) > 0)
+					accel(event.acceleration.x, event.acceleration.y, event.acceleration.z);
 			}
 		}
 
@@ -405,12 +489,17 @@ namespace wheel
 		void initwnd()
 		{
 			LOGI("initwnd()");
+
 			EGLint format;
 			eglGetConfigAttrib(dpy, glconfig, EGL_NATIVE_VISUAL_ID, &format);
-			context = eglCreateContext(dpy, glconfig, 0, 0);
 			ANativeWindow_setBuffersGeometry(window, 0, 0, format);
+
 			surface = eglCreateWindowSurface(dpy, glconfig, window, 0);
+			const EGLint attribs[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE };
+			context = eglCreateContext(dpy, glconfig, 0, attribs);
+
 			eglMakeCurrent(dpy, surface, surface, context);
+			LOGI("%s",(char*)glGetString(GL_VERSION));
 			EGLint w,h;
 			eglQuerySurface(dpy, surface, EGL_WIDTH, &w);
 			eglQuerySurface(dpy, surface, EGL_HEIGHT, &h);
@@ -418,12 +507,16 @@ namespace wheel
 			resize();
 			sensorManager = ASensorManager_getInstance();
 			accelerometer = ASensorManager_getDefaultSensor(sensorManager, ASENSOR_TYPE_ACCELEROMETER);
-			sensorEventQueue = ASensorManager_createEventQueue(sensorManager, looper, sensor_id, 0, 0);
+			sensorEventQueue = ASensorManager_createEventQueue(sensorManager, events.looper, 1, 0, 0);
+			events.fns[1] = [&](pollfd) { processsensor(); };
+
+			visible = 1;
 		}
 
 		void termwnd()
 		{
 			LOGI("termwnd()");
+			visible = 0;
 			eglMakeCurrent(dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 			eglDestroySurface(dpy, surface);
 			if(context != EGL_NO_CONTEXT) eglDestroyContext(dpy, context);
@@ -446,29 +539,13 @@ namespace wheel
 			}
 
 			void resize() { size(parent->size()); widget::resize(); }
+			bool show() { return app().visible; }
 			void show(bool) {}
 			void fullscreen(bool) {}
 			void togglefullscreen() {}
 			void makecurrent() {}
+			void draw() { glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT); widget::draw(); flip(); }
 			void flip() { app().flip(); }
 		};
 	}
-}
-
-void ANativeActivity_onCreate(ANativeActivity* activity, void*, size_t)
-{
-	activity->callbacks->onDestroy = wheel::android::onDestroy;
-	activity->callbacks->onStart = wheel::android::onStart;
-	activity->callbacks->onResume = wheel::android::onResume;
-	activity->callbacks->onSaveInstanceState = wheel::android::onSaveInstanceState;
-	activity->callbacks->onPause = wheel::android::onPause;
-	activity->callbacks->onStop = wheel::android::onStop;
-	activity->callbacks->onConfigurationChanged = wheel::android::onCfgChanged;
-	activity->callbacks->onLowMemory = wheel::android::onLowMemory;
-	activity->callbacks->onWindowFocusChanged = wheel::android::onWindowFocus;
-	activity->callbacks->onNativeWindowCreated = wheel::android::onWindowCreated;
-	activity->callbacks->onNativeWindowDestroyed = wheel::android::onWindowDestroyed;
-	activity->callbacks->onInputQueueCreated = wheel::android::onInputQueueCreated;
-	activity->callbacks->onInputQueueDestroyed = wheel::android::onInputQueueDestroyed;
-	wheel::android::act().create(activity);
 }
