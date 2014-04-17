@@ -1,4 +1,4 @@
-#pragma once
+/*#pragma once
 #include <vector>
 #include <functional>
 #include <iostream>
@@ -20,10 +20,23 @@ namespace wheel
 	struct eventloop
 	{
 		int n = 0;
+		#ifdef ANDROID
+		ALooper *looper = ALooper_prepare(ALOOPER_PREPARE_ALLOW_NON_CALLBACKS);
+		#else
 		pollfd fds[64]; // in honor of Windows
 		function<void(pollfd)> fns[64];
+		#endif
 
-		void add(pollfd fd, function<void(pollfd)> fn) { fds[n] = fd; fns[n] = fn; ++n; }
+		void add(pollfd fd, function<void(pollfd)> fn)
+		{
+		#ifdef ANDROID
+			ALooper_addFd(looper, android::act().msgpipe[0], main_id, ALOOPER_EVENT_INPUT, 0, 0);
+		#else
+			fds[n] = fd;
+			fns[n] = fn;
+			++n;
+		#endif
+		}
 		void remove(pollfd fd) { for(int i = 0; i < n; ++i) if(fds[i] == fd) { --n; swap(fds[i],fds[n]); swap(fns[i],fns[n]); return; } }
 
 		void process(int timeout)
@@ -57,3 +70,4 @@ namespace wheel
 		}
 	};
 }
+*/
