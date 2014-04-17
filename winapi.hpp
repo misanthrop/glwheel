@@ -3,12 +3,45 @@
 #include <GL/gl.h>
 #include <windows.h>
 #include <windowsx.h>
+#include <functional>
 #include "widget.hpp"
-#include "events.hpp"
 #include "utf.hpp"
+
+typedef HANDLE pollfd; // :(
 
 namespace wheel
 {
+	struct eventloop
+	{
+		int n = 0;
+		pollfd fds[64];
+		function<void(pollfd)> fns[64];
+
+		void add(pollfd fd, function<void(pollfd)> fn) { fds[n] = fd; fns[n] = fn; ++n; }
+		void remove(pollfd fd) { for(int i = 0; i < n; ++i) if(fds[i] == fd) { --n; swap(fds[i],fds[n]); swap(fns[i],fns[n]); return; } }
+
+		void process(int timeout)
+		{
+			DWORD r = 0;
+			while((r = MsgWaitForMultipleObjects(n, fds, false, timeout, QS_ALLINPUT|QS_ALLPOSTMESSAGE)) != WAIT_TIMEOUT)
+			{
+				if(r == WAIT_FAILED) return;
+				if(r == n)
+				{
+					MSG msg;
+					while(PeekMessage(&msg, 0, 0, 0, PM_REMOVE))
+					{
+						if(msg.message == WM_QUIT) break;
+						TranslateMessage(&msg);
+						DispatchMessage(&msg);
+					}
+				}
+				else if(0 <= r && r < n) fns[r](fds[r]);
+				timeout = 0;
+			}
+		}
+	};
+
 	namespace winapi
 	{
 		constexpr const key::type vkkey[256] =
@@ -171,6 +204,7 @@ namespace wheel
 				DestroyWindow(wnd);
 			}
 
+			bool show() const { return true; }
 			void show(bool b) { ShowWindow(wnd, b ? SW_SHOWMAXIMIZED:SW_SHOWMINIMIZED); }
 
 			void fullscreen(bool b)

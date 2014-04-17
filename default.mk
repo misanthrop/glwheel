@@ -1,89 +1,156 @@
 CXXFLAGS += -std=c++11
-
-os := $(shell uname -s)
-
-ifneq (,$(findstring MINGW,$(os)))
-	os := Windows
-endif
-
-ifeq ($(os),Linux)
-libs	 += GL X11
-else ifeq ($(os),Android)
-# $(shell mkdir -p libs/armeabi)
-$(shell mkdir -p libs/x86)
-# all:: bin/Example-debug.apk
-
-libs	 += gcc log android EGL GLESv1_CM c m
-
-CC		 := /opt/android-ndk/toolchains/x86-4.7/prebuilt/linux-x86_64/bin/i686-linux-android-gcc
-CXX		 := /opt/android-ndk/toolchains/x86-4.7/prebuilt/linux-x86_64/bin/i686-linux-android-g++
-
-# FLAGS	 += -gcc-toolchain /opt/android-ndk/toolchains/arm-linux-androideabi-4.6/prebuilt/linux-x86_64
-# FLAGS	 += -gcc-toolchain /opt/android-ndk/toolchains/x86-4.7/prebuilt/linux-x86_64
-# FLAGS	 += -no-canonical-prefixes -target armv5te-none-linux-androideabi
-FLAGS	 += -no-canonical-prefixes
-# -target i686-none-linux-android
-CPPFLAGS += -ffunction-sections -funwind-tables -fstack-protector -Wa,--noexecstack
-# CPPFLAGS += -march=armv5te -mtune=xscale -msoft-float -mthumb
-# -DNDEBUG
-CPPFLAGS += -DANDROID
-CPPFLAGS += -fomit-frame-pointer -fstrict-aliasing -funswitch-loops -finline-limit=300
-# CPPFLAGS += -I/opt/android-ndk/sources/android/native_app_glue
-# CPPFLAGS += -I/opt/android-ndk/platforms/android-14/arch-arm/usr/include
-CPPFLAGS += -I/opt/android-ndk/platforms/android-9/arch-x86/usr/include
-
-CXXFLAGS += -fno-exceptions -fno-rtti
-CXXFLAGS += -I/opt/android-ndk/sources/cxx-stl/gnu-libstdc++/4.7/include
-# CXXFLAGS += -I/opt/android-ndk/sources/cxx-stl/gnu-libstdc++/4.6/libs/armeabi/include
-CXXFLAGS += -I/opt/android-ndk/sources/cxx-stl/gnu-libstdc++/4.7/libs/x86/include
-
-# LDFLAGS	 += -shared --sysroot=/opt/android-ndk/platforms/android-14/arch-arm
-LDFLAGS	 += -shared --sysroot=/opt/android-ndk/platforms/android-9/arch-x86
-# LDFLAGS	 += /opt/android-ndk/sources/cxx-stl/gnu-libstdc++/4.6/libs/armeabi/libgnustl_static.a
-LDFLAGS	 += /opt/android-ndk/sources/cxx-stl/gnu-libstdc++/4.7/libs/x86/libgnustl_static.a
-LDFLAGS	 += -Wl,--no-undefined -Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now
-# LDFLAGS	 += -L/opt/android-ndk/platforms/android-14/arch-arm/usr/lib
-LDFLAGS	 += -L/opt/android-ndk/platforms/android-9/arch-x86/usr/lib
-target	 := ./libs/x86/lib$(target).so
-else ifeq ($(os),Windows)
-	target	 := $(target).exe
-	libs	 += glew32 gdi32 opengl32
-	CXXFLAGS += -D_WIN32_WINNT=0x0500 -DUNICODE
-	LDFLAGS  += -Xlinker -subsystem=windows
-endif
-
-ifeq ($(CDEBUG),-g)
-CXXFLAGS := $(filter-out -O1 -O2 -O3 -Os -s, $(CXXFLAGS))
-LDFLAGS  := $(filter-out -O1 -O2 -O3 -Os -s, $(LDFLAGS))
-endif
-
-objs	:= $(addsuffix .o,$(sources))
-depends	:= $(addsuffix .d,$(objs))
+objs	 := $(addsuffix .o,$(sources))
 
 .PHONY: all clean
-.PRECIOUS: %.dp
+.PRECIOUS: %.o.d
 .SUFFIXES:
 
-all:: $(target)
+allplatforms		:= linux windows android
+platform			:= linux
 
-clean::
-	$(RM) $(objs) $(depends) $(target)
+linux-arch			:= x86_64
+linux-x86-CC		:= $(CC)
+linux-x86-CXX		:= $(CXX)
+linux-x86_64-CC		:= $(CC)
+linux-x86_64-CXX	:= $(CXX)
+linux-x86-FLAGS		+= -m32
+linux-x86_64-FLAGS	+= -m64
+linux-CPPFLAGS		+= -O2
+linux-LDFLAGS		+= -lX11 -lGL
+linux-x86-target	:= $(target)32
+linux-x86_64-target := $(target)
+linux-archive		:= $(target).tar.gz
 
-%.o: %.c
-	$(CC) -MMD -MP -MF $@.d $(CDEBUG) $(FLAGS) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+windows-arch		  := x86
+windows-x86-CC		  := i686-w64-mingw32-gcc
+windows-x86-CXX		  := i686-w64-mingw32-g++
+windows-x86_64-CC	  := x86_64-w64-mingw32-gcc
+windows-x86_64-CXX	  := x86_64-w64-mingw32-g++
+windows-CPPFLAGS	  += -O2 -D_WIN32_WINNT=0x0500 -DUNICODE -DGLEW_STATIC
+windows-LDFLAGS		  += -static -Xlinker -subsystem=windows -lglew32 -lgdi32 -lopengl32
+windows-x86-target	  := $(target).exe
+windows-x86_64-target := $(target)64.exe
+windows-archive		  := $(target).zip
 
-%.o: %.cpp
-	$(CXX) -MMD -MP -MF $@.d $(CDEBUG) $(FLAGS) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
+android-apilevel			 := 10
+android-package				 := com.glwheel
+android-arch				 := x86 armeabi armeabi-v7a mips
+android-x86-CC				 := $(ANDROID_NDK)/toolchains/x86-4.8/prebuilt/linux-x86_64/bin/i686-linux-android-gcc
+android-x86-CXX				 := $(ANDROID_NDK)/toolchains/x86-4.8/prebuilt/linux-x86_64/bin/i686-linux-android-g++
+android-armeabi-CC			 := $(ANDROID_NDK)/toolchains/arm-linux-androideabi-4.8/prebuilt/linux-x86_64/bin/arm-linux-androideabi-gcc
+android-armeabi-CXX			 := $(ANDROID_NDK)/toolchains/arm-linux-androideabi-4.8/prebuilt/linux-x86_64/bin/arm-linux-androideabi-g++
+android-armeabi-v7a-CC		 := $(ANDROID_NDK)/toolchains/arm-linux-androideabi-4.8/prebuilt/linux-x86_64/bin/arm-linux-androideabi-gcc
+android-armeabi-v7a-CXX		 := $(ANDROID_NDK)/toolchains/arm-linux-androideabi-4.8/prebuilt/linux-x86_64/bin/arm-linux-androideabi-g++
+android-mips-CC				 := $(ANDROID_NDK)/toolchains/mipsel-linux-android-4.8/prebuilt/linux-x86_64/bin/mipsel-linux-android-gcc
+android-mips-CXX			 := $(ANDROID_NDK)/toolchains/mipsel-linux-android-4.8/prebuilt/linux-x86_64/bin/mipsel-linux-android-g++
+android-FLAGS				 += -no-canonical-prefixes
+android-CPPFLAGS			 += -ffunction-sections -funwind-tables -fstack-protector -fomit-frame-pointer -Wa,--noexecstack -Wformat -Werror=format-security -DANDROID
+android-x86-CPPFLAGS		 += -O2 -fstrict-aliasing -finline-limit=300 -funswitch-loops -I$(ANDROID_NDK)/platforms/android-9/arch-x86/usr/include
+android-armeabi-CPPFLAGS     += -Os -fno-strict-aliasing -finline-limit=64 -fpic -march=armv5te -mtune=xscale -msoft-float -mthumb -I$(ANDROID_NDK)/platforms/android-9/arch-arm/usr/include
+android-armeabi-v7a-CPPFLAGS += -Os -fno-strict-aliasing -finline-limit=64 -fpic -march=armv7-a -mfloat-abi=softfp -mfpu=vfpv3-d16 -mthumb -I$(ANDROID_NDK)/platforms/android-9/arch-arm/usr/include
+android-mips-CPPFLAGS		 += -O2 -fno-strict-aliasing -finline-limit=300 -fpic -finline-functions -fmessage-length=0 -fno-inline-functions-called-once -fgcse-after-reload -frerun-cse-after-loop -frename-registers -funswitch-loops -I$(ANDROID_NDK)/platforms/android-9/arch-mips/usr/include
+android-CXXFLAGS			 += -Wno-literal-suffix -I$(ANDROID_NDK)/sources/cxx-stl/gnu-libstdc++/4.8/include -fno-rtti -I$(ANDROID_NDK)/sources/cxx-stl/gnu-libstdc++/4.8/libs/$2/include
+android-LDFLAGS				 += -Wl,-soname,$(notdir $$@) -shared $(ANDROID_NDK)/sources/cxx-stl/gnu-libstdc++/4.8/libs/$2/libgnustl_static.a -lgcc -Wl,--no-undefined -Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now -llog -landroid -lEGL -lGLESv2 -lc -lm
+android-x86-LDFLAGS			 += --sysroot=$(ANDROID_NDK)/platforms/android-9/arch-x86 -L$(ANDROID_NDK)/platforms/android-9/arch-x86/usr/lib
+android-armeabi-LDFLAGS		 += --sysroot=$(ANDROID_NDK)/platforms/android-9/arch-arm -L$(ANDROID_NDK)/platforms/android-9/arch-arm/usr/lib
+android-armeabi-v7a-LDFLAGS	 += --sysroot=$(ANDROID_NDK)/platforms/android-9/arch-arm -L$(ANDROID_NDK)/platforms/android-9/arch-arm/usr/lib
+android-mips-LDFLAGS		 += --sysroot=$(ANDROID_NDK)/platforms/android-9/arch-mips -L$(ANDROID_NDK)/platforms/android-9/arch-mips/usr/lib
+android-x86-target			 := .build/android/libs/x86/lib$(target).so
+android-armeabi-target		 := .build/android/libs/armeabi/lib$(target).so
+android-armeabi-v7a-target	 := .build/android/libs/armeabi-v7a/lib$(target).so
+android-mips-target			 := .build/android/libs/mips/lib$(target).so
+android-archive				 := $(target)-debug.apk
 
-%.so: $(objs)
-	$(CXX) $(objs) $(CDEBUG) -shared -fpic -Wl,-soname,$(notdir $@) $(FLAGS) $(LDFLAGS) $(addprefix -l,$(libs)) -o $@
+define rules =
+$1:: $($1-$2-target)
 
-$(target): $(objs)
-	$(CXX) $(objs) $(CDEBUG) $(FLAGS) $(LDFLAGS) $(addprefix -l,$(libs)) -o $(target)
+clean-$1:: clean-$1-$2
 
-%.apk: AndroidManifest.xml libs/x86/libexample.so
-	ant debug
-#	/opt/android-sdk/build-tools/17.0.0/aapt package --no-crunch -f --debug-mode -M $< -I /opt/android-sdk/platforms/android-17/android.jar -F $@
+clean-$1-$2::
+	$(RM) -r .build/$1/$2
 
--include $(depends)
+.build/$1/$2/%.o: %.c
+	@mkdir -p $$(@D)
+	$($1-$2-CC) -MMD -MP -MF $$@.d \
+		$(FLAGS) $($1-FLAGS) $($1-$2-FLAGS) \
+		$(CPPFLAGS) $($1-CPPFLAGS) $($1-$2-CPPFLAGS) \
+		$(CFLAGS) $($1-CFLAGS) $($1-$2-CFLAGS) -c $$< -o $$@
 
+.build/$1/$2/%.o: %.cpp
+	@mkdir -p $$(@D)
+	$($1-$2-CXX) -MMD -MP -MF $$@.d \
+		$(FLAGS) $($1-FLAGS) $($1-$2-FLAGS) \
+		$(CPPFLAGS) $($1-CPPFLAGS) $($1-$2-CPPFLAGS) \
+		$(CXXFLAGS) $($1-CXXFLAGS) $($1-$2-CXXFLAGS) -c $$< -o $$@
+
+$($1-$2-target): $(addprefix .build/$1/$2/,$(objs))
+	@mkdir -p $$(@D)
+	$($1-$2-CXX) $$^ $(FLAGS) $($1-FLAGS) $($1-$2-FLAGS) $(LDFLAGS) $($1-LDFLAGS) $($1-$2-LDFLAGS) -o $$@
+endef
+
+$(foreach p,$(allplatforms), $(foreach a,$($p-arch), $(eval $(call rules,$p,$a))))
+
+define androidmanifest
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+		package="$(android-package).$(target)"
+		android:versionCode="1"
+		android:versionName="1.0">
+	<uses-sdk android:minSdkVersion="9" />
+	<uses-feature android:glEsVersion="0x00020000" android:required="true" />
+	<application android:label="$(target)" android:hasCode="false">
+		<activity android:name="android.app.NativeActivity"
+				android:label="$(target)"
+				android:configChanges="orientation|keyboardHidden">
+			<meta-data android:name="android.app.lib_name" android:value="$(target)" />
+			<intent-filter>
+				<action android:name="android.intent.action.MAIN" />
+				<category android:name="android.intent.category.LAUNCHER" />
+			</intent-filter>
+		</activity>
+	</application>
+</manifest>
+endef
+export androidmanifest
+
+define link =
+$1$2: $2
+	@mkdir -p $$(@D)
+	ln -s $$(realpath $$^) $$@
+endef
+
+$(foreach x,$(data),$(eval $(call link,.build/android/assets/,$x)))
+
+.build/android/AndroidManifest.xml:
+	@mkdir -p $(@D)
+	echo "$$androidmanifest" >$@
+
+.build/android/default.properties:
+	@mkdir -p $(@D)
+	@echo "target=android-$(android-apilevel)" >$@
+
+.build/android/build.xml: .build/android/AndroidManifest.xml .build/android/default.properties
+	android update project -p .build/android -n $(target) -s
+
+$(windows-archive): windows
+	zip -r $@ $(foreach a,$(windows-arch),$(windows-$a-target)) $(data)
+
+$(android-archive): .build/android/build.xml $(addprefix .build/android/assets/,$(data)) android
+	ant debug -f $<
+	@mv .build/android/bin/$@ $@
+
+install-linux: linux
+
+install-windows: windows
+
+install-android: $(android-archive)
+	adb install -r $^
+
+all:: $(platform)
+
+clean:: $(addprefix clean-,$(platform))
+
+install:: $(addprefix install-,$(platform))
+
+rwildcard=$(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2) $(filter $(subst *,%,$2),$d))
+-include $(call rwildcard, .build/, *.o.d)
