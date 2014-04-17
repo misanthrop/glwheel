@@ -33,17 +33,17 @@ windows-x86-target	  := $(target).exe
 windows-x86_64-target := $(target)64.exe
 windows-archive		  := $(target).zip
 
-android-apilevel	 := 10
-android-package		 := com.glwheel
-android-arch		 := x86 armeabi armeabi-v7a mips
-android-x86-CC			+= $(ANDROID_NDK)/toolchains/x86-4.8/prebuilt/linux-x86_64/bin/i686-linux-android-gcc
-android-x86-CXX			+= $(ANDROID_NDK)/toolchains/x86-4.8/prebuilt/linux-x86_64/bin/i686-linux-android-g++
-android-armeabi-CC		+= $(ANDROID_NDK)/toolchains/arm-linux-androideabi-4.8/prebuilt/linux-x86_64/bin/arm-linux-androideabi-gcc
-android-armeabi-CXX		+= $(ANDROID_NDK)/toolchains/arm-linux-androideabi-4.8/prebuilt/linux-x86_64/bin/arm-linux-androideabi-g++
-android-armeabi-v7a-CC	+= $(ANDROID_NDK)/toolchains/arm-linux-androideabi-4.8/prebuilt/linux-x86_64/bin/arm-linux-androideabi-gcc
-android-armeabi-v7a-CXX	+= $(ANDROID_NDK)/toolchains/arm-linux-androideabi-4.8/prebuilt/linux-x86_64/bin/arm-linux-androideabi-g++
-android-mips-CC			+= $(ANDROID_NDK)/toolchains/mipsel-linux-android-4.8/prebuilt/linux-x86_64/bin/mipsel-linux-android-gcc
-android-mips-CXX		+= $(ANDROID_NDK)/toolchains/mipsel-linux-android-4.8/prebuilt/linux-x86_64/bin/mipsel-linux-android-g++
+android-apilevel			 := 10
+android-package				 := com.glwheel
+android-arch				 := x86 armeabi armeabi-v7a mips
+android-x86-CC				 := $(ANDROID_NDK)/toolchains/x86-4.8/prebuilt/linux-x86_64/bin/i686-linux-android-gcc
+android-x86-CXX				 := $(ANDROID_NDK)/toolchains/x86-4.8/prebuilt/linux-x86_64/bin/i686-linux-android-g++
+android-armeabi-CC			 := $(ANDROID_NDK)/toolchains/arm-linux-androideabi-4.8/prebuilt/linux-x86_64/bin/arm-linux-androideabi-gcc
+android-armeabi-CXX			 := $(ANDROID_NDK)/toolchains/arm-linux-androideabi-4.8/prebuilt/linux-x86_64/bin/arm-linux-androideabi-g++
+android-armeabi-v7a-CC		 := $(ANDROID_NDK)/toolchains/arm-linux-androideabi-4.8/prebuilt/linux-x86_64/bin/arm-linux-androideabi-gcc
+android-armeabi-v7a-CXX		 := $(ANDROID_NDK)/toolchains/arm-linux-androideabi-4.8/prebuilt/linux-x86_64/bin/arm-linux-androideabi-g++
+android-mips-CC				 := $(ANDROID_NDK)/toolchains/mipsel-linux-android-4.8/prebuilt/linux-x86_64/bin/mipsel-linux-android-gcc
+android-mips-CXX			 := $(ANDROID_NDK)/toolchains/mipsel-linux-android-4.8/prebuilt/linux-x86_64/bin/mipsel-linux-android-g++
 android-FLAGS				 += -no-canonical-prefixes
 android-CPPFLAGS			 += -ffunction-sections -funwind-tables -fstack-protector -fomit-frame-pointer -Wa,--noexecstack -Wformat -Werror=format-security -DANDROID
 android-x86-CPPFLAGS		 += -O2 -fstrict-aliasing -finline-limit=300 -funswitch-loops -I$(ANDROID_NDK)/platforms/android-9/arch-x86/usr/include
