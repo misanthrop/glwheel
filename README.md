@@ -58,5 +58,5 @@ target := hello
 # space separated .c or .cpp file names without extension
 sources	:= hello
 
-include wheel/default.mk
+include glwheel/default.mk
 ```
