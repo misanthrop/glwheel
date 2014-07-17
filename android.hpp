@@ -21,8 +21,8 @@ inline bool operator==(const pollfd& a, const pollfd& b) { return a.fd == b.fd; 
 
 extern int main();
 
-#define LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO, "app", __VA_ARGS__))
-#define LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, "app", __VA_ARGS__))
+#define LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO, "glwheel", __VA_ARGS__))
+#define LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, "glwheel", __VA_ARGS__))
 
 namespace wheel
 {
@@ -302,13 +302,15 @@ namespace wheel
 
 			eglInitialize(dpy, 0, 0);
 
-			uint8_t depth = 16, stencil = 0, r = 8, g = 8, b = 8, a = 8;
+			//uint8_t depth = 16, stencil = 0, r = 5, g = 6, b = 5, a = 8;
 
-			const EGLint attribs[] = { EGL_SURFACE_TYPE, EGL_WINDOW_BIT, EGL_DEPTH_SIZE, depth, EGL_STENCIL_SIZE, stencil,
-				EGL_RED_SIZE,r, EGL_GREEN_SIZE,g, EGL_BLUE_SIZE,b, EGL_ALPHA_SIZE,a, EGL_NONE };
+			const EGLint attribs[] = { EGL_RED_SIZE,8, EGL_GREEN_SIZE,8, EGL_BLUE_SIZE,8, EGL_ALPHA_SIZE,8, EGL_DEPTH_SIZE,16,
+									   EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT, EGL_NONE };
 
 			EGLint numConfigs;
 			eglChooseConfig(dpy, attribs, &glconfig, 1, &numConfigs);
+
+			LOGI("egl cfgs: %d", numConfigs);
 
 			{
 				std::unique_lock<std::mutex> lock(android::act().mutex);
@@ -319,9 +321,10 @@ namespace wheel
 			// I hate crap like the following
 			mkdir(android::act().a->internalDataPath,0770);
 			chdir(android::act().a->internalDataPath);
-			const char *dirs[] = { "textures", "scripts" };
+			const char *dirs[] = { "textures", "scripts", "shaders" };
 			for(const char *dirname : dirs) if(AAssetDir *dir = AAssetManager_openDir(android::act().a->assetManager, dirname))
 			{
+				LOGI("dir: %s", dirname);
 				mkdir(dirname,0770);
 				while(const char *fn = AAssetDir_getNextFileName(dir))
 				{
@@ -331,8 +334,7 @@ namespace wheel
 					const char *path = spath.c_str();
 					AAsset *a = AAssetManager_open(android::act().a->assetManager, path, AASSET_MODE_BUFFER);
 					int f = open(path, O_CREAT|O_TRUNC|O_WRONLY, 0660);
-					LOGI("%s", path);
-					LOGI("%d", f);
+					LOGI("file: %s %d", path, f);
 					if(f != -1) write(f, AAsset_getBuffer(a), AAsset_getLength(a));
 					else LOGI("%s", strerror(errno));
 					::close(f);
