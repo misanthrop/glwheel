@@ -19,7 +19,8 @@ namespace wheel
 			f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12,
 			f13, f14, f15, f16, f17, f18, f19, f20, f21, f22, f23, f24, f25,
 			kp0, kp1, kp2, kp3, kp4, kp5, kp6, kp7, kp8, kp9, divide, kpenter,
-			grave, backtick, power, volumeup, volumedown, play, stop, next, prev, rewind, forward, mute, last
+			grave, backtick, power, volumeup, volumedown, play, stop, next, prev, rewind, forward, mute,
+			camera, last
 		};
 		inline uint8_t& state(uint8_t k) { static uint8_t state[last]; return state[k]; }
 	}

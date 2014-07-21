@@ -52,21 +52,18 @@ namespace wheel
 
 		void add(AInputQueue *inputQueue, function<void(pollfd)> fn)
 		{
-			LOGI("AInputQueue_attachLooper");
 			fns[0] = fn;
 			AInputQueue_attachLooper(inputQueue, looper, 0, 0, 0);
 		}
 
 		void remove(AInputQueue *inputQueue)
 		{
-			LOGI("AInputQueue_detachLooper");
 			AInputQueue_detachLooper(inputQueue);
 			fns[0] = 0;
 		}
 
 		void process(int timeout)
 		{
-			//LOGI("process(%d)", timeout);
 			int i, events;
 			while((i = ALooper_pollAll(timeout, 0, &events, 0)) >= 0) { fns[i](fds[i]); timeout = 0; }
 		}
@@ -95,8 +92,8 @@ namespace wheel
 			key::volumeup,	// AKEYCODE_VOLUME_UP       = 24,
 			key::volumedown,// AKEYCODE_VOLUME_DOWN     = 25,
 			key::power,		// AKEYCODE_POWER           = 26,
-			key::unknown,	// AKEYCODE_CAMERA          = 27,
-			key::unknown,	// AKEYCODE_CLEAR           = 28,
+			key::camera,	// AKEYCODE_CAMERA          = 27,
+			key::clear,		// AKEYCODE_CLEAR           = 28,
 			key::a, key::b, key::c, key::d, key::e, key::f, key::g, key::h, key::i, key::j, key::k, key::l, key::m,	// AKEYCODE_A = 29,
 			key::n, key::o, key::p, key::q, key::r, key::s, key::t, key::u, key::v, key::w, key::x, key::y, key::z,	// AKEYCODE_Z = 54,
 			key::comma,		// AKEYCODE_COMMA           = 55,
@@ -125,8 +122,8 @@ namespace wheel
 			key::unknown,	// AKEYCODE_NUM             = 78,
 			key::unknown,	// AKEYCODE_HEADSETHOOK     = 79,
 			key::unknown,	// AKEYCODE_FOCUS           = 80,   // *Camera* focus
-			key::unknown,	// AKEYCODE_PLUS            = 81,
-			key::unknown,	// AKEYCODE_MENU            = 82,
+			key::plus,		// AKEYCODE_PLUS            = 81,
+			key::menu,		// AKEYCODE_MENU            = 82,
 			key::unknown,	// AKEYCODE_NOTIFICATION    = 83,
 			key::unknown,	// AKEYCODE_SEARCH          = 84,
 			key::play,		// AKEYCODE_MEDIA_PLAY_PAUSE= 85,
@@ -294,7 +291,6 @@ namespace wheel
 
 		application()
 		{
-			LOGI("application()");
 			android::act().a->instance = this;
 			AConfiguration_fromAssetManager(config, android::act().a->assetManager);
 
@@ -309,8 +305,6 @@ namespace wheel
 
 			EGLint numConfigs;
 			eglChooseConfig(dpy, attribs, &glconfig, 1, &numConfigs);
-
-			LOGI("egl cfgs: %d", numConfigs);
 
 			{
 				std::unique_lock<std::mutex> lock(android::act().mutex);
@@ -334,7 +328,7 @@ namespace wheel
 					const char *path = spath.c_str();
 					AAsset *a = AAssetManager_open(android::act().a->assetManager, path, AASSET_MODE_BUFFER);
 					int f = open(path, O_CREAT|O_TRUNC|O_WRONLY, 0660);
-					LOGI("file: %s %d", path, f);
+					LOGI("file: %s", path);
 					if(f != -1) write(f, AAsset_getBuffer(a), AAsset_getLength(a));
 					else LOGI("%s", strerror(errno));
 					::close(f);
@@ -367,7 +361,6 @@ namespace wheel
 		int8_t processcmd()
 		{
 			int8_t c = android::act().readcmd();
-			//LOGI("process_cmd(%d)", c);
 			switch(c)
 			{
 				case cmd::inputchanged:
@@ -450,7 +443,6 @@ namespace wheel
 				switch(AInputEvent_getType(event))
 				{
 					case AINPUT_EVENT_TYPE_KEY:
-						//LOGI("key %d", AKeyEvent_getKeyCode(event));
 						if(key::type k = android::key[AKeyEvent_getKeyCode(event)])
 						{
 							switch(AKeyEvent_getAction(event))
@@ -463,11 +455,32 @@ namespace wheel
 						break;
 
 					case AINPUT_EVENT_TYPE_MOTION:
-						//LOGI("motion");
+					{
+						int n = AMotionEvent_getPointerCount(event);
+						constexpr uint8_t button[] = { key::lbutton, key::rbutton, key::mbutton };
 						m = point(AMotionEvent_getX(event, 0), AMotionEvent_getY(event, 0));
 						pointermove();
+						if(n < 3)
+						{
+							uint8_t b = button[n-1];
+							switch(AMotionEvent_getAction(event) & AMOTION_EVENT_ACTION_MASK)
+							{
+								case AMOTION_EVENT_ACTION_DOWN:
+									if(!key::state(b))
+									{
+										key::state(b) = 1;
+										press(b);
+									}
+									break;
+								case AMOTION_EVENT_ACTION_UP:
+									key::state(b) = 0;
+									release(b);
+									break;
+							}
+						}
 						processed = 1;
 						break;
+					}
 				}
 				AInputQueue_finishEvent(inputQueue, event, processed);
 			}
