@@ -536,6 +536,14 @@ namespace wheel
 			eglDestroySurface(dpy, surface);
 			if(context != EGL_NO_CONTEXT) eglDestroyContext(dpy, context);
 		}
+
+		vector<uint8_t> load(const string& name)
+		{
+			AAsset *a = AAssetManager_open(android::act().a->assetManager, name.c_str(), AASSET_MODE_BUFFER);
+			const uint8_t *start = (const uint8_t *)AAsset_getBuffer(a);
+			size_t size = AAsset_getLength(a);
+			return vector<uint8_t>(start, start + size);
+		}
 	};
 
 	namespace native
