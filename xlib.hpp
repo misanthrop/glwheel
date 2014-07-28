@@ -405,7 +405,7 @@ namespace wheel
 			}
 
 			case ButtonPress:
-				m = point(event.xbutton.x_root, event.xbutton.y_root);
+				m = point(event.xbutton.x, event.xbutton.y);
 				switch(event.xbutton.button)
 				{
 					case Button1: key::state(key::lbutton) = 1; w->press(key::lbutton); break;
@@ -426,11 +426,11 @@ namespace wheel
 				break;
 
 			case ConfigureNotify:
-				w->set(event.xconfigure.x, event.xconfigure.y, event.xconfigure.width, event.xconfigure.height);
+				w->set(0, 0, event.xconfigure.width, event.xconfigure.height);
 				w->resize();
 				break;
 
-			case MotionNotify: m = point(event.xmotion.x_root,event.xmotion.y_root); w->pointermove(); break;
+			case MotionNotify: m = point(event.xmotion.x,event.xmotion.y); w->pointermove(); break;
 			case ClientMessage: if((Atom)event.xclient.data.l[0] == atom["WM_DELETE_WINDOW"]) w->close(); break;
 			case MapNotify: ((native::window*)w)->visible = true; break;
 			case UnmapNotify: ((native::window*)w)->visible = false; break;
