@@ -140,16 +140,6 @@ namespace wheel
 			}
 		};
 
-		template<char const*const* name, size_t n> struct atoms
-		{
-			Atom id[n];
-
-			atoms(Display *dpy) { XInternAtoms(dpy, (char**)name, n, 0, id); }
-			static constexpr bool isequal(const char *a, const char *b) { return *a && *b ? isequal(a+1,b+1) : !*a && !*b; }
-			static constexpr int find(const char *nm, int i = 0) { return isequal(nm,name[i]) ? i : find(nm,i+1); }
-			Atom& operator[](const char *nm) { return id[find(nm)]; }
-		};
-
 		inline uint8_t key(XKeyEvent *e)
 		{
 			KeySym k = XLookupKeysym(e,1);
@@ -256,14 +246,25 @@ namespace wheel
 				}
 			}
 		}
-	}
 
-	constexpr char const*const atomnames[] = { "UTF8_STRING", "WM_DELETE_WINDOW", "_NET_WM_NAME", "_NET_WM_STATE", "_NET_WM_STATE_FULLSCREEN" };
+		constexpr char const*const atomnames[] = { "UTF8_STRING", "WM_DELETE_WINDOW", "_NET_WM_NAME", "_NET_WM_STATE", "_NET_WM_STATE_FULLSCREEN" };
+
+		struct atoms
+		{
+			static constexpr size_t n = sizeof(atomnames)/sizeof(atomnames[0]);
+			Atom id[n];
+
+			atoms(Display *dpy) { XInternAtoms(dpy, (char**)atomnames, n, 0, id); }
+			static constexpr bool isequal(const char *a, const char *b) { return *a && *b ? isequal(a+1,b+1) : !*a && !*b; }
+			static constexpr int find(const char *nm, int i = 0) { return isequal(nm,atomnames[i]) ? i : find(nm,i+1); }
+			Atom& operator[](const char *nm) { return id[find(nm)]; }
+		};
+	}
 
 	struct application : widget, xlib::display
 	{
 		eventloop events;
-		xlib::atoms<atomnames,5> atom;
+		xlib::atoms atom;
 		GLXContext ctx = 0;
 		Visual *vis = 0;
 		point m;
