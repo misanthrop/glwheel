@@ -315,7 +315,7 @@ namespace wheel
 			// I hate crap like the following
 			mkdir(android::act().a->internalDataPath,0770);
 			chdir(android::act().a->internalDataPath);
-			const char *dirs[] = { "textures", "scripts", "shaders" };
+			const char *dirs[] = { "textures", "scripts", "shaders", "fonts" };
 			for(const char *dirname : dirs) if(AAssetDir *dir = AAssetManager_openDir(android::act().a->assetManager, dirname))
 			{
 				LOGI("dir: %s", dirname);
