@@ -300,7 +300,7 @@ namespace wheel
 			case WM_MBUTTONUP: winapi::updatebuttons(wp); w->release(key::mbutton); return 0;
 			case WM_XBUTTONUP: winapi::updatebuttons(wp); w->release(HIWORD(wp) == 1 ? key::xbutton1:key::xbutton2); return 0;
 			case WM_MOUSEMOVE: w->app().m = w->p + point(GET_X_LPARAM(lp), GET_Y_LPARAM(lp)); w->pointermove(); return 0;
-			case WM_MOUSEWHEEL: w->scroll(GET_WHEEL_DELTA_WPARAM(wp)/WHEEL_DELTA); return 0;
+			case WM_MOUSEWHEEL: w->scroll(-GET_WHEEL_DELTA_WPARAM(wp)/WHEEL_DELTA); return 0;
 		}
 		return DefWindowProc(wnd, msg, wp, lp);
 	}
