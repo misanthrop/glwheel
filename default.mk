@@ -5,8 +5,18 @@ objs	 := $(addsuffix .o,$(sources))
 .PRECIOUS: %.o.d
 .SUFFIXES:
 
+os := $(shell uname -s)
+
+ifneq (,$(findstring Linux,$(os)))
+	os := linux
+endif
+
+ifneq (,$(findstring MINGW,$(os)))
+	os := windows
+endif
+
 allplatforms		:= linux windows android
-platform			:= linux
+platform			:= $(os)
 
 linux-arch			:= x86_64
 linux-x86-CC		:= $(CC)
@@ -22,10 +32,17 @@ linux-x86_64-target := $(target)
 linux-archive		:= $(target).tar.gz
 
 windows-arch		  := x86
+ifneq (,$(findstring windows,$(os)))
+windows-x86-CC		  := $(CC)
+windows-x86-CXX		  := $(CXX)
+windows-x86_64-CC	  := $(CC)
+windows-x86_64-CXX	  := $(CXX)
+else
 windows-x86-CC		  := i686-w64-mingw32-gcc
 windows-x86-CXX		  := i686-w64-mingw32-g++
 windows-x86_64-CC	  := x86_64-w64-mingw32-gcc
 windows-x86_64-CXX	  := x86_64-w64-mingw32-g++
+endif
 windows-CPPFLAGS	  += -O2 -D_WIN32_WINNT=0x0500 -DUNICODE -DGLEW_STATIC
 windows-LDFLAGS		  += -static -Xlinker -subsystem=windows -lglew32 -lgdi32 -lopengl32
 windows-x86-target	  := $(target).exe
