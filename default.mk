@@ -18,6 +18,8 @@ endif
 allplatforms		:= linux windows android
 platform			:= $(os)
 
+all:: $(platform)
+
 linux-arch			:= x86_64
 linux-x86-CC		:= $(CC)
 linux-x86-CXX		:= $(CXX)
@@ -162,8 +164,6 @@ install-windows: windows
 
 install-android: $(android-archive)
 	adb install -r $^
-
-all:: $(platform)
 
 clean:: $(addprefix clean-,$(platform))
 
