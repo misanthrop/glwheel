@@ -9,6 +9,10 @@ namespace wheel
 	{
 		widget *parent = 0;
 		std::vector<widget*> children;
+		bool active = 1;
+
+		operator bool() const { return active; }
+		bool operator!() const { return !active; }
 
 		virtual ~widget() {}
 		widget *at(const point& x) { for(widget *w : children) if(w->contains(x)) return w; return 0; }

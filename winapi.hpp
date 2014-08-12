@@ -204,7 +204,7 @@ namespace wheel
 				DestroyWindow(wnd);
 			}
 
-			bool show() const { return true; }
+			bool show() const { return size() != point(0); }
 			void show(bool b) { ShowWindow(wnd, b ? SW_SHOWMAXIMIZED:SW_SHOWMINIMIZED); }
 
 			void fullscreen(bool b)
