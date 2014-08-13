@@ -458,7 +458,7 @@ namespace wheel
 					{
 						int n = AMotionEvent_getPointerCount(event);
 						constexpr uint8_t button[] = { key::lbutton, key::rbutton, key::mbutton };
-						m = point(AMotionEvent_getX(event, 0), AMotionEvent_getY(event, 0));
+						m = point(AMotionEvent_getX(event, 0), height() - AMotionEvent_getY(event, 0));
 						pointermove();
 						if(n < 3)
 						{

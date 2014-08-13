@@ -242,10 +242,11 @@ namespace wheel
 				for(uint8_t k = 0; k < key::last; ++k) key::state(k) = 0;
 				return 0;
 
-			case WM_MOVE: w->move(point(LOWORD(lp), HIWORD(lp))); return 0;
+			//case WM_MOVE: w->move(point(LOWORD(lp), HIWORD(lp))); return 0;
 
 			case WM_SIZE:
-				w->size(point(LOWORD(lp), HIWORD(lp)));
+				w->set(0,0,LOWORD(lp), HIWORD(lp));
+				//w->size(point(LOWORD(lp), HIWORD(lp)));
 				switch(wp)
 				{
 					//case SIZE_MINIMIZED: w->cur = vg::window::minimized; break;
@@ -299,7 +300,7 @@ namespace wheel
 			case WM_RBUTTONUP: winapi::updatebuttons(wp); w->release(key::rbutton); return 0;
 			case WM_MBUTTONUP: winapi::updatebuttons(wp); w->release(key::mbutton); return 0;
 			case WM_XBUTTONUP: winapi::updatebuttons(wp); w->release(HIWORD(wp) == 1 ? key::xbutton1:key::xbutton2); return 0;
-			case WM_MOUSEMOVE: w->app().m = w->p + point(GET_X_LPARAM(lp), GET_Y_LPARAM(lp)); w->pointermove(); return 0;
+			case WM_MOUSEMOVE: w->app().m = w->p + point(GET_X_LPARAM(lp), w->height() - GET_Y_LPARAM(lp)); w->pointermove(); return 0;
 			case WM_MOUSEWHEEL: w->scroll(-GET_WHEEL_DELTA_WPARAM(wp)/WHEEL_DELTA); return 0;
 		}
 		return DefWindowProc(wnd, msg, wp, lp);
