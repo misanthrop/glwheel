@@ -315,7 +315,7 @@ namespace wheel
 			// I hate crap like the following
 			mkdir(android::act().a->internalDataPath,0770);
 			chdir(android::act().a->internalDataPath);
-			const char *dirs[] = { "geometry", "material", "textures", "scripts", "shaders", "fonts" };
+			const char *dirs[] = { "geometry", "levels", "material", "textures", "scripts", "shaders", "fonts" };
 			for(const char *dirname : dirs) if(AAssetDir *dir = AAssetManager_openDir(android::act().a->assetManager, dirname))
 			{
 				LOGI("dir: %s", dirname);
@@ -526,12 +526,15 @@ namespace wheel
 			events.fns[1] = [&](pollfd) { processsensor(); };
 
 			visible = 1;
+			LOGI("reload");
+			reload();
 		}
 
 		void termwnd()
 		{
 			LOGI("termwnd()");
 			visible = 0;
+			clear();
 			eglMakeCurrent(dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 			eglDestroySurface(dpy, surface);
 			if(context != EGL_NO_CONTEXT) eglDestroyContext(dpy, context);

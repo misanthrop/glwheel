@@ -29,6 +29,8 @@ namespace wheel
 		virtual void resize() { for(widget *c : children) if(*c) c->resize(); }
 		virtual void draw() { for(widget *c : children) if(*c) c->draw(); }
 		virtual void close() { if(parent) parent->remove(this); }
+		virtual void clear() { for(widget *c : children) c->clear(); }
+		virtual void reload() { for(widget *c : children) c->reload(); }
 
 		void add(widget *w) { children.push_back(w); w->parent = this; }
 		void remove(widget *w) { for(widget*& c : children) if(c == w) { c = children.back(); children.pop_back(); break; } }
