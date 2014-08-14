@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <thread>
 #include <mutex>
+#include <algorithm>
 #include <condition_variable>
 #include <sched.h>
 
@@ -286,7 +287,8 @@ namespace wheel
 		EGLContext context = EGL_NO_CONTEXT;
 		EGLSurface surface;
 		EGLConfig glconfig;
-		point m;
+		size_t mn = 1;
+		point m[32];
 		bool alive = 1, visible = 0;
 
 		application()
@@ -353,7 +355,7 @@ namespace wheel
 
 		operator bool() const { return alive; }
 
-		point pointer() const { return m; }
+		point pointer() const { return m[0]; }
 		virtual void accel(float,float,float) {}
 
 		void process(int timeout = -1) { events.process(timeout); }
@@ -456,27 +458,39 @@ namespace wheel
 
 					case AINPUT_EVENT_TYPE_MOTION:
 					{
-						int n = AMotionEvent_getPointerCount(event);
-						constexpr uint8_t button[] = { key::lbutton, key::rbutton, key::mbutton };
-						m = point(AMotionEvent_getX(event, 0), height() - AMotionEvent_getY(event, 0));
+						size_t prevn = mn;
+						point prevm[32]; memcpy(prevm, m, sizeof(m));
+						mn = std::min((size_t)32, AMotionEvent_getPointerCount(event));
+						int action = AMotionEvent_getAction(event) & AMOTION_EVENT_ACTION_MASK;
+//						constexpr uint8_t button[] = { key::lbutton, key::rbutton, key::mbutton };
+//						if(action == AMOTION_EVENT_ACTION_DOWN && mn != 1 && prevn == 1) if(key::state(*key::lbutton))
+//							key::state(key::lbutton) = 0;
+						for(size_t i = 0; i < mn; ++i) m[i] = point(AMotionEvent_getX(event, i), height() - AMotionEvent_getY(event, i));
 						pointermove();
-						if(n < 3)
+						if(mn == 1)
 						{
-							uint8_t b = button[n-1];
-							switch(AMotionEvent_getAction(event) & AMOTION_EVENT_ACTION_MASK)
+							//uint8_t b = button[mn-1];
+							switch(action)
 							{
 								case AMOTION_EVENT_ACTION_DOWN:
-									if(!key::state(b))
+									if(!*key::lbutton)
 									{
-										key::state(b) = 1;
-										press(b);
+										key::state(key::lbutton) = 1;
+										press(key::lbutton);
 									}
 									break;
 								case AMOTION_EVENT_ACTION_UP:
-									key::state(b) = 0;
-									release(b);
+									key::state(key::lbutton) = 0;
+									release(key::lbutton);
 									break;
 							}
+						}
+						if(mn == 2 && prevn == 2)
+						{
+							point d = m[1] - m[0], prevd = prevm[1] - prevm[0];
+							float diff2 = ~prevd - ~d;
+							float absdiff = sqrt(abs(diff2));
+							if(absdiff > 16) scroll(diff2*4/absdiff/std::min(width(),height()));
 						}
 						processed = 1;
 						break;
@@ -575,3 +589,23 @@ namespace wheel
 		};
 	}
 }
+
+#ifdef ANDROID_IMPL
+void ANativeActivity_onCreate(ANativeActivity* activity, void*, size_t)
+{
+	activity->callbacks->onDestroy = wheel::android::onDestroy;
+	activity->callbacks->onStart = wheel::android::onStart;
+	activity->callbacks->onResume = wheel::android::onResume;
+	activity->callbacks->onSaveInstanceState = wheel::android::onSaveInstanceState;
+	activity->callbacks->onPause = wheel::android::onPause;
+	activity->callbacks->onStop = wheel::android::onStop;
+	activity->callbacks->onConfigurationChanged = wheel::android::onCfgChanged;
+	activity->callbacks->onLowMemory = wheel::android::onLowMemory;
+	activity->callbacks->onWindowFocusChanged = wheel::android::onWindowFocus;
+	activity->callbacks->onNativeWindowCreated = wheel::android::onWindowCreated;
+	activity->callbacks->onNativeWindowDestroyed = wheel::android::onWindowDestroyed;
+	activity->callbacks->onInputQueueCreated = wheel::android::onInputQueueCreated;
+	activity->callbacks->onInputQueueDestroyed = wheel::android::onInputQueueDestroyed;
+	wheel::android::act().create(activity);
+}
+#endif
