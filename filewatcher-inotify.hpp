@@ -43,18 +43,18 @@ namespace wheel
 
 		void nextevent()
 		{
-			inotify_event event;
-			int len = read(fd, (char*)&event, sizeof(inotify_event));
-			if(len < 0) return;
-			char path[event.len+1];
-			if(event.len)
+			constexpr size_t bufsz = 1024*(sizeof(inotify_event) + 16);
+			char buf[bufsz];
+			int len = read(fd, buf, bufsz);
+			for(char *p = buf; p < buf + len;)
 			{
-				len = read(fd, path, event.len);
-				if(len < 0) return;
+				inotify_event *event = (inotify_event *)p;
+				p += sizeof(inotify_event);
+				char empty = 0, *path = p;
+				if(event->len) p += event->len; else path = &empty;
+				fns[event->wd](event->mask, path);
+				if(event->mask&IN_IGNORED) fns.erase(event->wd);
 			}
-			else path[0] = 0;
-			fns[event.wd](event.mask,path);
-			if(event.mask&IN_IGNORED) fns.erase(event.wd);
 		}
 	};
 }
