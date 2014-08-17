@@ -15,7 +15,7 @@ namespace wheel
 		bool operator!() const { return !active; }
 
 		virtual ~widget() {}
-		widget *at(const point& x) { for(widget *w : children) if(w->contains(x)) return w; return 0; }
+		widget *at(const point& x) { for(widget *w : children) if(w->active) if(w->contains(x)) return w; return 0; }
 
 		virtual void update() { for(widget *c : children) if(*c) c->update(); }
 		virtual widget *focus() { return at(pointer()); }
