@@ -6,11 +6,11 @@ namespace wheel
 {
 	struct window : native::window
 	{
-		signal<void()> resized;
-		signal<void(uint32_t)> keycoded;
-		signal<void(int)> scrolled;
-		signal<void()> pointermoved;
-		signal<void(uint8_t)> pressed, released;
+		sig<void()> resized;
+		sig<void(uint32_t)> keycoded;
+		sig<void(int)> scrolled;
+		sig<void()> pointermoved;
+		sig<void(uint8_t)> pressed, released;
 
 		window(application &app, const char *title, int w = 0, int h = 0) : native::window(app, title, w,h) {}
 

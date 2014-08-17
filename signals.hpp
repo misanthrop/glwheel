@@ -6,9 +6,9 @@ namespace wheel
 {
     using namespace std;
 
-    template<class signature> struct signal;
+	template<class signature> struct sig;
 
-    template<class... args> struct signal<void(args...)>
+	template<class... args> struct sig<void(args...)>
     {
 		using slot = function<void(args...)>;
 		using connection = typename list<slot>::iterator;
