@@ -446,5 +446,6 @@ namespace wheel
 		void clear() {}
 		void set(string&&) {}
 		void play(bool = 1) {}
+		void stop() { play(0); }
 	};
 }

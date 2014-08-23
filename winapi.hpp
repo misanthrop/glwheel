@@ -315,6 +315,7 @@ namespace wheel
 		void cmd(const string& s) { mciSendStringA(s.c_str(), 0, 0, 0); }
 		void clear() { if(!name.empty()) cmd("close " + name); }
 		void set(string&& nm) { clear(); name = forward<string>(nm); cmd("open " + name); }
-		void play(bool b = 1) { cmd((b ? "play ":"stop ") + name + " repeat"); }
+		void play(bool b = 1) { cmd((b ? "play ":"stop ") + name + (b ? " repeat":"")); }
+		void stop() { play(0); }
 	};
 }

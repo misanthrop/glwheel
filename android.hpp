@@ -679,6 +679,8 @@ namespace wheel
 		{
 			assert((*playitf)->SetPlayState(playitf, b ? SL_PLAYSTATE_PLAYING : SL_PLAYSTATE_PAUSED) == SL_RESULT_SUCCESS);
 		}
+
+		void stop() { play(0); }
 	};
 }
 
