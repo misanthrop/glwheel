@@ -1,12 +1,15 @@
 #pragma once
 #include <EGL/egl.h>
 #include <GLES/gl.h>
+#include <SLES/OpenSLES.h>
+#include <SLES/OpenSLES_Android.h>
 #include <poll.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <thread>
 #include <mutex>
+#include <cassert>
 #include <algorithm>
 #include <condition_variable>
 #include <sched.h>
@@ -251,6 +254,38 @@ namespace wheel
 		inline void* onSaveInstanceState(ANativeActivity*, size_t*) { return 0; }
 	}
 
+	namespace sl
+	{
+		inline SLEngineItf engine()
+		{
+			static SLObjectItf obj = 0;
+			static SLEngineItf instance;
+			if(!obj)
+			{
+				assert(slCreateEngine(&obj, 0, 0, 0, 0, 0) == SL_RESULT_SUCCESS);
+				assert((*obj)->Realize(obj, SL_BOOLEAN_FALSE) == SL_RESULT_SUCCESS);
+				// get the engine interface, which is needed in order to create other objects
+				assert((*obj)->GetInterface(obj, SL_IID_ENGINE, &instance) == SL_RESULT_SUCCESS);
+			}
+			return instance;
+		}
+
+		inline SLObjectItf mix()
+		{
+			static SLObjectItf obj = 0;
+			SLEngineItf eng = engine();
+			if(!obj)
+			{
+				// create output mix, with environmental reverb specified as a non-required interface
+				const SLInterfaceID ids[] = { SL_IID_VOLUME };
+				const SLboolean req[] = { SL_BOOLEAN_FALSE };
+				assert((*eng)->CreateOutputMix(eng, &obj, 1, ids, req) == SL_RESULT_SUCCESS);
+				assert((*obj)->Realize(obj, SL_BOOLEAN_FALSE) == SL_RESULT_SUCCESS);
+			}
+			return obj;
+		}
+	}
+
 	struct stream
 	{
 		AAsset *a = 0;
@@ -317,7 +352,7 @@ namespace wheel
 			// I hate crap like the following
 			mkdir(android::act().a->internalDataPath,0770);
 			chdir(android::act().a->internalDataPath);
-			const char *dirs[] = { "geometry", "levels", "material", "textures", "scripts", "shaders", "fonts" };
+			const char *dirs[] = { "geometry", "levels", "levels/gold", "material", "textures", "scripts", "shaders", "fonts" };
 			for(const char *dirname : dirs) if(AAssetDir *dir = AAssetManager_openDir(android::act().a->assetManager, dirname))
 			{
 				LOGI("dir: %s", dirname);
@@ -515,6 +550,19 @@ namespace wheel
 		void flip() { eglSwapBuffers(dpy, surface); }
 		void draw() { glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT); for(widget *c : children) if(*c) c->draw(); flip(); }
 
+		void update()
+		{
+			EGLint w,h;
+			eglQuerySurface(dpy, surface, EGL_WIDTH, &w);
+			eglQuerySurface(dpy, surface, EGL_HEIGHT, &h);
+			if(width() != w || height() != h)
+			{
+				set(0,0,w,h);
+				resize();
+			}
+			widget::update();
+		}
+
 		void initwnd()
 		{
 			LOGI("initwnd()");
@@ -529,11 +577,7 @@ namespace wheel
 
 			eglMakeCurrent(dpy, surface, surface, context);
 			LOGI("%s",(char*)glGetString(GL_VERSION));
-			EGLint w,h;
-			eglQuerySurface(dpy, surface, EGL_WIDTH, &w);
-			eglQuerySurface(dpy, surface, EGL_HEIGHT, &h);
-			set(0,0,w,h);
-			resize();
+			update();
 			sensorManager = ASensorManager_getInstance();
 			accelerometer = ASensorManager_getDefaultSensor(sensorManager, ASENSOR_TYPE_ACCELEROMETER);
 			sensorEventQueue = ASensorManager_createEventQueue(sensorManager, events.looper, 1, 0, 0);
@@ -588,6 +632,54 @@ namespace wheel
 			void flip() { app().flip(); }
 		};
 	}
+
+	struct audiotrack
+	{
+		// file descriptor player interfaces
+		SLObjectItf obj = 0;
+		SLPlayItf playitf;
+		SLSeekItf seekitf;
+
+		~audiotrack() { clear(); }
+
+		bool operator!() const { return !obj; }
+		void clear() { if(obj) { (*obj)->Destroy(obj); obj = 0; } }
+
+		void set(const char *fn)
+		{
+			AAsset* asset = AAssetManager_open(android::act().a->assetManager, fn, AASSET_MODE_UNKNOWN);
+			off_t start, length;
+			int fd = AAsset_openFileDescriptor(asset, &start, &length);
+			assert(0 <= fd);
+			AAsset_close(asset);
+			// open asset as file descriptor
+
+			// configure audio source
+			SLDataLocator_AndroidFD loc_fd = { SL_DATALOCATOR_ANDROIDFD, fd, start, length };
+			SLDataFormat_MIME format_mime = { SL_DATAFORMAT_MIME, 0, SL_CONTAINERTYPE_UNSPECIFIED };
+			SLDataSource audioSrc = {&loc_fd, &format_mime};
+
+			// configure audio sink
+			SLObjectItf outputMix = sl::mix();
+			SLDataLocator_OutputMix loc_outmix = { SL_DATALOCATOR_OUTPUTMIX, outputMix };
+			SLDataSink audioSnk = { &loc_outmix, 0 };
+
+			// create audio player
+			const SLInterfaceID ids[] = { SL_IID_PLAY, SL_IID_SEEK };
+			const SLboolean req[] = { SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE };
+			SLEngineItf eng = sl::engine();
+			assert((*eng)->CreateAudioPlayer(eng, &obj, &audioSrc, &audioSnk, 2, ids, req) == SL_RESULT_SUCCESS);
+			assert((*obj)->Realize(obj, SL_BOOLEAN_FALSE) == SL_RESULT_SUCCESS);
+			assert((*obj)->GetInterface(obj, SL_IID_PLAY, &playitf) == SL_RESULT_SUCCESS);
+			assert((*obj)->GetInterface(obj, SL_IID_SEEK, &seekitf) == SL_RESULT_SUCCESS);
+			assert((*seekitf)->SetLoop(seekitf, SL_BOOLEAN_TRUE, 0, SL_TIME_UNKNOWN) == SL_RESULT_SUCCESS);
+		}
+
+		void play(bool b = 1)
+		{
+			assert((*playitf)->SetPlayState(playitf, b ? SL_PLAYSTATE_PLAYING : SL_PLAYSTATE_PAUSED) == SL_RESULT_SUCCESS);
+		}
+	};
 }
 
 #ifdef ANDROID_IMPL

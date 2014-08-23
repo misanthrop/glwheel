@@ -46,7 +46,7 @@ windows-x86_64-CC	  := x86_64-w64-mingw32-gcc
 windows-x86_64-CXX	  := x86_64-w64-mingw32-g++
 endif
 windows-CPPFLAGS	  += -O2 -D_WIN32_WINNT=0x0500 -DUNICODE -DGLEW_STATIC
-windows-LDFLAGS		  += -static -Xlinker -subsystem=windows -lglew32 -lgdi32 -lopengl32
+windows-LDFLAGS		  += -static -Xlinker -subsystem=windows -lglew32 -lgdi32 -lopengl32 -lwinmm
 windows-x86-target	  := $(target).exe
 windows-x86_64-target := $(target)64.exe
 windows-archive		  := $(target).zip
@@ -69,7 +69,7 @@ android-armeabi-CPPFLAGS     += -Os -fno-strict-aliasing -finline-limit=64 -fpic
 android-armeabi-v7a-CPPFLAGS += -Os -fno-strict-aliasing -finline-limit=64 -fpic -march=armv7-a -mfloat-abi=softfp -mfpu=vfpv3-d16 -mthumb -I$(ANDROID_NDK)/platforms/android-9/arch-arm/usr/include
 android-mips-CPPFLAGS		 += -O2 -fno-strict-aliasing -finline-limit=300 -fpic -finline-functions -fmessage-length=0 -fno-inline-functions-called-once -fgcse-after-reload -frerun-cse-after-loop -frename-registers -funswitch-loops -I$(ANDROID_NDK)/platforms/android-9/arch-mips/usr/include
 android-CXXFLAGS			 += -Wno-literal-suffix -I$(ANDROID_NDK)/sources/cxx-stl/gnu-libstdc++/4.8/include -fno-rtti -I$(ANDROID_NDK)/sources/cxx-stl/gnu-libstdc++/4.8/libs/$2/include
-android-LDFLAGS				 += -Wl,-soname,$(notdir $$@) -shared $(ANDROID_NDK)/sources/cxx-stl/gnu-libstdc++/4.8/libs/$2/libgnustl_static.a -lgcc -Wl,--no-undefined -Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now -llog -landroid -lEGL -lGLESv2 -lc -lm
+android-LDFLAGS				 += -Wl,-soname,$(notdir $$@) -shared $(ANDROID_NDK)/sources/cxx-stl/gnu-libstdc++/4.8/libs/$2/libgnustl_static.a -lgcc -Wl,--no-undefined -Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now -llog -landroid -lEGL -lGLESv2 -lOpenSLES -lc -lm
 android-x86-LDFLAGS			 += --sysroot=$(ANDROID_NDK)/platforms/android-9/arch-x86 -L$(ANDROID_NDK)/platforms/android-9/arch-x86/usr/lib
 android-armeabi-LDFLAGS		 += --sysroot=$(ANDROID_NDK)/platforms/android-9/arch-arm -L$(ANDROID_NDK)/platforms/android-9/arch-arm/usr/lib
 android-armeabi-v7a-LDFLAGS	 += --sysroot=$(ANDROID_NDK)/platforms/android-9/arch-arm -L$(ANDROID_NDK)/platforms/android-9/arch-arm/usr/lib

@@ -438,4 +438,13 @@ namespace wheel
 			case DestroyNotify: w->close(); break;
 		}
 	}
+
+	struct audiotrack
+	{
+		~audiotrack() { clear(); }
+		bool operator!() const { return 1; }
+		void clear() {}
+		void set(string&&) {}
+		void play(bool = 1) {}
+	};
 }
