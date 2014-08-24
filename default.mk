@@ -54,26 +54,26 @@ windows-archive		  := $(target).zip
 android-apilevel			 := 10
 android-package				 := com.glwheel
 android-arch				 := x86 armeabi armeabi-v7a mips
-android-x86-CC				 := $(ANDROID_NDK)/toolchains/x86-4.8/prebuilt/linux-x86_64/bin/i686-linux-android-gcc
-android-x86-CXX				 := $(ANDROID_NDK)/toolchains/x86-4.8/prebuilt/linux-x86_64/bin/i686-linux-android-g++
-android-armeabi-CC			 := $(ANDROID_NDK)/toolchains/arm-linux-androideabi-4.8/prebuilt/linux-x86_64/bin/arm-linux-androideabi-gcc
-android-armeabi-CXX			 := $(ANDROID_NDK)/toolchains/arm-linux-androideabi-4.8/prebuilt/linux-x86_64/bin/arm-linux-androideabi-g++
-android-armeabi-v7a-CC		 := $(ANDROID_NDK)/toolchains/arm-linux-androideabi-4.8/prebuilt/linux-x86_64/bin/arm-linux-androideabi-gcc
-android-armeabi-v7a-CXX		 := $(ANDROID_NDK)/toolchains/arm-linux-androideabi-4.8/prebuilt/linux-x86_64/bin/arm-linux-androideabi-g++
-android-mips-CC				 := $(ANDROID_NDK)/toolchains/mipsel-linux-android-4.8/prebuilt/linux-x86_64/bin/mipsel-linux-android-gcc
-android-mips-CXX			 := $(ANDROID_NDK)/toolchains/mipsel-linux-android-4.8/prebuilt/linux-x86_64/bin/mipsel-linux-android-g++
+android-x86-CC				 := $(ANDROID_NDK)/toolchains/x86-4.9/prebuilt/linux-x86_64/bin/i686-linux-android-gcc
+android-x86-CXX				 := $(ANDROID_NDK)/toolchains/x86-4.9/prebuilt/linux-x86_64/bin/i686-linux-android-g++
+android-armeabi-CC			 := $(ANDROID_NDK)/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/bin/arm-linux-androideabi-gcc
+android-armeabi-CXX			 := $(ANDROID_NDK)/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/bin/arm-linux-androideabi-g++
+android-armeabi-v7a-CC		 := $(ANDROID_NDK)/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/bin/arm-linux-androideabi-gcc
+android-armeabi-v7a-CXX		 := $(ANDROID_NDK)/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/bin/arm-linux-androideabi-g++
+android-mips-CC				 := $(ANDROID_NDK)/toolchains/mipsel-linux-android-4.9/prebuilt/linux-x86_64/bin/mipsel-linux-android-gcc
+android-mips-CXX			 := $(ANDROID_NDK)/toolchains/mipsel-linux-android-4.9/prebuilt/linux-x86_64/bin/mipsel-linux-android-g++
 android-FLAGS				 += -no-canonical-prefixes
 android-CPPFLAGS			 += -ffunction-sections -funwind-tables -fstack-protector -fomit-frame-pointer -Wa,--noexecstack -Wformat -Werror=format-security -DANDROID
-android-x86-CPPFLAGS		 += -O2 -fstrict-aliasing -finline-limit=300 -funswitch-loops -I$(ANDROID_NDK)/platforms/android-9/arch-x86/usr/include
-android-armeabi-CPPFLAGS     += -Os -fno-strict-aliasing -finline-limit=64 -fpic -march=armv5te -mtune=xscale -msoft-float -mthumb -I$(ANDROID_NDK)/platforms/android-9/arch-arm/usr/include
-android-armeabi-v7a-CPPFLAGS += -Os -fno-strict-aliasing -finline-limit=64 -fpic -march=armv7-a -mfloat-abi=softfp -mfpu=vfpv3-d16 -mthumb -I$(ANDROID_NDK)/platforms/android-9/arch-arm/usr/include
-android-mips-CPPFLAGS		 += -O2 -fno-strict-aliasing -finline-limit=300 -fpic -finline-functions -fmessage-length=0 -fno-inline-functions-called-once -fgcse-after-reload -frerun-cse-after-loop -frename-registers -funswitch-loops -I$(ANDROID_NDK)/platforms/android-9/arch-mips/usr/include
-android-CXXFLAGS			 += -Wno-literal-suffix -I$(ANDROID_NDK)/sources/cxx-stl/gnu-libstdc++/4.8/include -fno-rtti -I$(ANDROID_NDK)/sources/cxx-stl/gnu-libstdc++/4.8/libs/$2/include
-android-LDFLAGS				 += -Wl,-soname,$(notdir $$@) -shared $(ANDROID_NDK)/sources/cxx-stl/gnu-libstdc++/4.8/libs/$2/libgnustl_static.a -lgcc -Wl,--no-undefined -Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now -llog -landroid -lEGL -lGLESv2 -lOpenSLES -lc -lm
-android-x86-LDFLAGS			 += --sysroot=$(ANDROID_NDK)/platforms/android-9/arch-x86 -L$(ANDROID_NDK)/platforms/android-9/arch-x86/usr/lib
-android-armeabi-LDFLAGS		 += --sysroot=$(ANDROID_NDK)/platforms/android-9/arch-arm -L$(ANDROID_NDK)/platforms/android-9/arch-arm/usr/lib
-android-armeabi-v7a-LDFLAGS	 += --sysroot=$(ANDROID_NDK)/platforms/android-9/arch-arm -L$(ANDROID_NDK)/platforms/android-9/arch-arm/usr/lib
-android-mips-LDFLAGS		 += --sysroot=$(ANDROID_NDK)/platforms/android-9/arch-mips -L$(ANDROID_NDK)/platforms/android-9/arch-mips/usr/lib
+android-x86-CPPFLAGS		 += -O2 -fstrict-aliasing -finline-limit=300 -funswitch-loops -I$(ANDROID_NDK)/platforms/android-L/arch-x86/usr/include
+android-armeabi-CPPFLAGS     += -Os -fno-strict-aliasing -finline-limit=64 -fpic -march=armv5te -mtune=xscale -msoft-float -mthumb -I$(ANDROID_NDK)/platforms/android-L/arch-arm/usr/include
+android-armeabi-v7a-CPPFLAGS += -Os -fno-strict-aliasing -finline-limit=64 -fpic -march=armv7-a -mfloat-abi=softfp -mfpu=vfpv3-d16 -mthumb -I$(ANDROID_NDK)/platforms/android-L/arch-arm/usr/include
+android-mips-CPPFLAGS		 += -O2 -fno-strict-aliasing -finline-limit=300 -fpic -finline-functions -fmessage-length=0 -fno-inline-functions-called-once -fgcse-after-reload -frerun-cse-after-loop -frename-registers -funswitch-loops -I$(ANDROID_NDK)/platforms/android-L/arch-mips/usr/include
+android-CXXFLAGS			 += -Wno-literal-suffix -I$(ANDROID_NDK)/sources/cxx-stl/gnu-libstdc++/4.9/include -fno-rtti -I$(ANDROID_NDK)/sources/cxx-stl/gnu-libstdc++/4.9/libs/$2/include
+android-LDFLAGS				 += -Wl,-soname,$(notdir $$@) -shared $(ANDROID_NDK)/sources/cxx-stl/gnu-libstdc++/4.9/libs/$2/libgnustl_static.a -lgcc -Wl,--no-undefined -Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now -llog -landroid -lEGL -lGLESv2 -lOpenSLES -lc -lm
+android-x86-LDFLAGS			 += --sysroot=$(ANDROID_NDK)/platforms/android-L/arch-x86 -L$(ANDROID_NDK)/platforms/android-L/arch-x86/usr/lib
+android-armeabi-LDFLAGS		 += --sysroot=$(ANDROID_NDK)/platforms/android-L/arch-arm -L$(ANDROID_NDK)/platforms/android-L/arch-arm/usr/lib
+android-armeabi-v7a-LDFLAGS	 += --sysroot=$(ANDROID_NDK)/platforms/android-L/arch-arm -L$(ANDROID_NDK)/platforms/android-L/arch-arm/usr/lib
+android-mips-LDFLAGS		 += --sysroot=$(ANDROID_NDK)/platforms/android-L/arch-mips -L$(ANDROID_NDK)/platforms/android-L/arch-mips/usr/lib
 android-x86-target			 := .build/android/libs/x86/lib$(target).so
 android-armeabi-target		 := .build/android/libs/armeabi/lib$(target).so
 android-armeabi-v7a-target	 := .build/android/libs/armeabi-v7a/lib$(target).so
