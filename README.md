@@ -28,21 +28,23 @@ C++ header-only cross-platform OpenGL windowing and event handling.
 ### hello.cpp
 
 ```cpp
-#include <glwheel/window.hpp>
+#include "impl.hpp"
 using namespace wheel;
 int main()
 {
-	application app;				// includes event loop
-	window wnd(app, u8"hello");		// u8 is optional and shows possibility to use Unicode
-	wnd.show(true);
-	while(app)						// while have windows
-	{
-		wnd.update();				// does nothing by default
-		if(wnd.show())				// if window is visible
-			wnd.draw();				// clear, draw children, swap buffers
-		app.process(1000);			// parameter is timeout in millisecond
-	}
-	return 0;
+    app.init(u8"hello");         // u8 is optional and shows possibility to use Unicode
+    app.show(true);
+    while(app.alive())
+    {
+        if(app)                  // if application is active
+        {
+            app.update();        // updates parameters if needed
+            app.draw();          // clear, draw children, swap buffers
+            app.process(100);    // parameter is timeout in milliseconds
+        }
+        else app.process();      // default value is -1, it means wait for next event
+    }
+    return 0;
 }
 ```
 

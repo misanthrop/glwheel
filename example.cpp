@@ -1,23 +1,25 @@
-#include "window.hpp"
-
+#include "impl.hpp"
 using namespace wheel;
 
-struct example : window
+struct example : widget
 {
 	float x = 0, y = 0;
 
-	example(application& app) : window(app, "glwheel") {}
+	void resize()
+	{
+	    (rect&)*this = rect(0,0,parent->width(),parent->height());
+	}
 
 	void press(uint8_t k)
 	{
 		switch(k)
 		{
 			case key::lbutton:
-				x = 2.0*pointer().x/width() - 1;
-				y = 1 - 2.0*pointer().y/height();
+				x = 2.0*app.pointer().x/width() - 1;
+				y = 1 - 2.0*app.pointer().y/height();
 				break;
-			case key::f11: togglefullscreen(); break;
-			case key::esc: close(); break;
+			case key::f11: app.togglefullscreen(); break;
+			case key::esc: app.close(); break;
 		}
 	}
 
@@ -25,22 +27,20 @@ struct example : window
 	{
 		glClearColor((float)pointer().x/width(), 0, (float)pointer().y/height(), 1);
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
-		glViewport(0,0,width(),height());
-		flip();
 	}
 };
 
 int main()
 {
-	application app;
-	example wnd(app);
-	wnd.show(true);
-	while(app)						// while have windows
+	app.init("glwheel");
+	example wnd;
+	app.add(&wnd);
+	app.show(true);
+	while(app.alive())
 	{
-		wnd.update();				// does nothing by default
-		if(wnd.show())				// if window is visible
-			wnd.draw();				// clear, draw children, swap buffers
-		app.process(1000);
+		if(app)			// if window is visible
+			app.draw();	// clear, draw children, swap buffers
+		app.process(100);
 	}
 	return 0;
 }
