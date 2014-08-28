@@ -120,6 +120,7 @@ define androidmanifest
 	<application android:label="$(target)" android:hasCode="false">
 		<activity android:name="android.app.NativeActivity"
 				android:label="$(target)"
+				android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
 				android:configChanges="orientation|keyboardHidden">
 			<meta-data android:name="android.app.lib_name" android:value="$(target)" />
 			<intent-filter>
