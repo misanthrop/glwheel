@@ -1,5 +1,4 @@
 #pragma once
-#include <functional>
 #include "widget.hpp"
 #include "signals.hpp"
 
