@@ -11,12 +11,12 @@ namespace wheel
 		std::vector<widget*> children;
 		bool active = 1;
 
-		operator bool() const { return active; }
-		bool operator!() const { return !active; }
+		operator bool() const { if(parent && !parent->active) return 0; return active; }
 
 		virtual ~widget() {}
 		widget *at(const point& x) { for(widget *w : children) if(w->active) if(w->contains(x)) return w; return 0; }
 
+		virtual bool show(bool b) { swap(active,b); return b; }
 		virtual void update() { for(widget *c : children) if(*c) c->update(); }
 		virtual widget *focus() { return at(pointer()); }
 		virtual void focus(widget *) {}
