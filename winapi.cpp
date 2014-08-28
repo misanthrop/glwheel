@@ -311,5 +311,7 @@ namespace wheel
 	void audiotrack::set(string&& nm) { native->set(forward<string>(nm)); }
 	void audiotrack::play(bool b) { native->play(b); }
 
+	int watch(const char *, function<void(uint32_t,const char*)>) {} // unimplemented yet
+
 	application app;
 }
