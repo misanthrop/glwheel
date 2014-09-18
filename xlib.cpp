@@ -10,6 +10,7 @@
 #include <sys/poll.h>
 #include <cstring>
 #include <iostream>
+#include <fstream>
 #include "app.hpp"
 #include "audio.hpp"
 #include "utf.hpp"
@@ -355,6 +356,12 @@ namespace wheel
 	void application::togglefullscreen() { xlib::fullscreen(2); }
 	void application::draw() { glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT); widget::draw(); flip(); }
 	void application::flip() { glXSwapBuffers(xlib::dpy, xlib::wnd); }
+
+	string application::resource(const string& name)
+	{
+		ifstream f(name, ios::binary);
+		return string(istreambuf_iterator<char>(f), istreambuf_iterator<char>());
+	}
 
 	struct nativeaudiotrack {};
 

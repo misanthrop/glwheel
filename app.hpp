@@ -1,4 +1,5 @@
 #pragma once
+#include <string>
 #include "widget.hpp"
 #include "signals.hpp"
 
@@ -26,6 +27,7 @@ namespace wheel
 		void fullscreen(bool);
 		void togglefullscreen();
 		void flip();
+		string resource(const string&);
 		point pointer() const;
 		void update();
 		bool show(bool);

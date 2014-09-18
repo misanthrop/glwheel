@@ -601,13 +601,13 @@ namespace wheel
 	void application::draw() { glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT); widget::draw(); flip(); }
 	void application::close() { log("close()"); android::writecmd(android::cmd::destroy); }
 
-//	vector<uint8_t> load(const string& name)
-//	{
-//		AAsset *a = AAssetManager_open(android::act.a->assetManager, name.c_str(), AASSET_MODE_BUFFER);
-//		const uint8_t *start = (const uint8_t *)AAsset_getBuffer(a);
-//		size_t size = AAsset_getLength(a);
-//		return vector<uint8_t>(start, start + size);
-//	}
+	string application::resource(const string& name)
+	{
+		AAsset *a = AAssetManager_open(android::act->assetManager, name.c_str(), AASSET_MODE_BUFFER);
+		const uint8_t *start = (const uint8_t *)AAsset_getBuffer(a);
+		size_t size = AAsset_getLength(a);
+		return string(start, start + size);
+	}
 
 	struct nativeaudiotrack
 	{

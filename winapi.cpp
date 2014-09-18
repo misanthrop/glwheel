@@ -291,6 +291,13 @@ namespace wheel
 	void application::fullscreen(bool b) { winapi::fullscreen(b); }
 	void application::togglefullscreen() { fullscreen(!winapi::fs); }
 	void application::flip() { SwapBuffers(winapi::dc); }
+
+	string application::resource(const string& name)
+	{
+		ifstream f(name, ios::binary);
+		return string(istreambuf_iterator<char>(f), istreambuf_iterator<char>());
+	}
+
 	point application::pointer() const { return winapi::m; }
 	void application::update() { widget::update(); }
 	bool application::show(bool b) { ShowWindow(winapi::wnd, b ? SW_SHOWMAXIMIZED:SW_SHOWMINIMIZED); return widget::show(b); }
