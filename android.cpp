@@ -440,7 +440,7 @@ namespace wheel
 			// I hate crap like the following
 			mkdir(act->internalDataPath,0770);
 			chdir(act->internalDataPath);
-			const char *dirs[] = { "geometry", "levels", "levels/gold", "levels/bluesteel", "material", "textures", "scripts", "shaders", "fonts" };
+			const char *dirs[] = { "scripts" };
 			for(const char *dirname : dirs) if(AAssetDir *dir = AAssetManager_openDir(act->assetManager, dirname))
 			{
 				log(string("dir: ") + dirname);
@@ -601,13 +601,19 @@ namespace wheel
 	void application::draw() { glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT); widget::draw(); flip(); }
 	void application::close() { log("close()"); android::writecmd(android::cmd::destroy); }
 
-	string application::resource(const string& name)
+	string loadasset(const string& name)
 	{
-		AAsset *a = AAssetManager_open(android::act->assetManager, name.c_str(), AASSET_MODE_BUFFER);
-		const uint8_t *start = (const uint8_t *)AAsset_getBuffer(a);
-		size_t size = AAsset_getLength(a);
-		return string(start, start + size);
+		if(AAsset *a = AAssetManager_open(android::act->assetManager, name.c_str(), AASSET_MODE_BUFFER))
+		{
+			const uint8_t *start = (const uint8_t *)AAsset_getBuffer(a);
+			size_t size = AAsset_getLength(a);
+			return string(start, start + size);
+		}
+		err("Failed to load asset: " + name);
+		return string();
 	}
+
+	string application::resource(const string& name) { return loadasset(name); }
 
 	struct nativeaudiotrack
 	{
