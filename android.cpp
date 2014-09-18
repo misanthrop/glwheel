@@ -49,8 +49,7 @@ namespace wheel
 			key::unknown,	// AKEYCODE_SOFT_LEFT       = 1,
 			key::unknown,	// AKEYCODE_SOFT_RIGHT      = 2,
 			key::home,		// AKEYCODE_HOME            = 3,
-			//key::esc,		// AKEYCODE_BACK            = 4,
-			key::unknown,	// AKEYCODE_BACK            = 4,
+			key::esc,		// AKEYCODE_BACK            = 4,
 			key::unknown,	// AKEYCODE_CALL            = 5,
 			key::unknown,	// AKEYCODE_ENDCALL         = 6,
 			key::n0, key::n1, key::n2, key::n3, key::n4, key::n5, key::n6, key::n7, key::n8, key::n9,	// AKEYCODE_0 = 7 .. AKEYCODE_9 = 16,
@@ -185,6 +184,7 @@ namespace wheel
 
 		void destroy()
 		{
+			log("destroy()");
 			{
 				std::unique_lock<std::mutex> lock(mutex);
 				writecmd(cmd::destroy);
@@ -476,11 +476,11 @@ namespace wheel
 			cond.notify_all();
 		}
 
-		inline void onDestroy(ANativeActivity*) { destroy(); }
-		inline void onStart(ANativeActivity*) { setstate(cmd::start); }
-		inline void onResume(ANativeActivity*) { setstate(cmd::resume); }
-		inline void onPause(ANativeActivity*) { setstate(cmd::pause); }
-		inline void onStop(ANativeActivity*) { setstate(cmd::stop); }
+		inline void onDestroy(ANativeActivity*) { log("onDestroy"); destroy(); }
+		inline void onStart(ANativeActivity*) { log("onStart"); setstate(cmd::start); }
+		inline void onResume(ANativeActivity*) { log("onResume"); setstate(cmd::resume); }
+		inline void onPause(ANativeActivity*) { log("onPause"); setstate(cmd::pause); }
+		inline void onStop(ANativeActivity*) { log("onStop"); setstate(cmd::stop); }
 		inline void onCfgChanged(ANativeActivity*) { writecmd(cmd::cfgchanged); }
 		inline void onLowMemory(ANativeActivity*) { writecmd(cmd::lowmem); }
 		inline void onWindowFocus(ANativeActivity*, int focused) { writecmd(focused ? cmd::focus : cmd::unfocus); }
@@ -599,7 +599,7 @@ namespace wheel
 
 	bool application::show(bool) { return active; }
 	void application::draw() { glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT); widget::draw(); flip(); }
-	void application::close() { log("close()"); android::writecmd(android::cmd::destroy); }
+	void application::close() { log("close()"); ANativeActivity_finish(android::act); }
 
 	string loadasset(const string& name)
 	{
@@ -669,6 +669,7 @@ namespace wheel
 
 void ANativeActivity_onCreate(ANativeActivity* activity, void*, size_t)
 {
+	wheel::log("ANativeActivity_onCreate");
 	activity->callbacks->onDestroy = wheel::android::onDestroy;
 	activity->callbacks->onStart = wheel::android::onStart;
 	activity->callbacks->onResume = wheel::android::onResume;
