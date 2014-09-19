@@ -17,6 +17,7 @@ namespace wheel
 		bool operator!() const;
 		void clear();
 		void set(string&&);
+		void setvolume(int v);
 		void play(bool = 1);
 		void stop() { play(0); }
 	};
