@@ -4,6 +4,7 @@
 #include <windows.h>
 #include <windowsx.h>
 #include <functional>
+#include <fstream>
 #include <iostream>
 #include "widget.hpp"
 #include "utf.hpp"
