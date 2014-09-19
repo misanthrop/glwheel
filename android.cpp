@@ -659,6 +659,8 @@ namespace wheel
 		}
 	};
 
+	audiotrack::audiotrack() : native(new nativeaudiotrack) {}
+	audiotrack::~audiotrack() { clear(); }
 	bool audiotrack::operator!() const { return !native->obj; }
 	void audiotrack::clear() { native->clear(); }
 	void audiotrack::set(string&& s) { native->set(forward<string>(s)); }

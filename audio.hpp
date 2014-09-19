@@ -1,6 +1,6 @@
 #pragma once
 #include <string>
-#include "storage.hpp"
+#include <memory>
 
 namespace wheel
 {
@@ -10,9 +10,10 @@ namespace wheel
 
 	struct audiotrack
 	{
-		storage<nativeaudiotrack,64> native;
+		unique_ptr<nativeaudiotrack> native;
 
-		~audiotrack() { clear(); }
+		audiotrack();
+		~audiotrack();
 		bool operator!() const;
 		void clear();
 		void set(string&&);

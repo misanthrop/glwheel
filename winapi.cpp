@@ -314,6 +314,8 @@ namespace wheel
 		void play(bool b) { winapi::mci((b ? "play ":"stop ") + name + (b ? " repeat":"")); }
 	};
 
+	audiotrack::audiotrack() : native(new nativeaudiotrack) {}
+	audiotrack::~audiotrack() { clear(); }
 	bool audiotrack::operator!() const { return native->name.empty(); }
 	void audiotrack::clear() { native->clear(); }
 	void audiotrack::set(string&& nm) { native->set(forward<string>(nm)); }

@@ -365,6 +365,8 @@ namespace wheel
 
 	struct nativeaudiotrack {};
 
+	audiotrack::audiotrack() : native(new nativeaudiotrack) {}
+	audiotrack::~audiotrack() { clear(); }
 	bool audiotrack::operator!() const { return 1; }
 	void audiotrack::clear() {}
 	void audiotrack::set(string&&) {}
