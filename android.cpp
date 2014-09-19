@@ -645,10 +645,10 @@ namespace wheel
 			SLDataSink audioSnk = { &loc_outmix, 0 };
 
 			// create audio player
-			const SLInterfaceID ids[] = { SL_IID_PLAY, SL_IID_SEEK };
-			const SLboolean req[] = { SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE };
+			const SLInterfaceID ids[] = { SL_IID_PLAY, SL_IID_SEEK, SL_IID_VOLUME };
+			const SLboolean req[] = { SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE };
 			SLEngineItf eng = sl::engine();
-			assert((*eng)->CreateAudioPlayer(eng, &obj, &audioSrc, &audioSnk, 2, ids, req) == SL_RESULT_SUCCESS);
+			assert((*eng)->CreateAudioPlayer(eng, &obj, &audioSrc, &audioSnk, 3, ids, req) == SL_RESULT_SUCCESS);
 			assert((*obj)->Realize(obj, SL_BOOLEAN_FALSE) == SL_RESULT_SUCCESS);
 			assert((*obj)->GetInterface(obj, SL_IID_PLAY, &playitf) == SL_RESULT_SUCCESS);
 			assert((*obj)->GetInterface(obj, SL_IID_SEEK, &seekitf) == SL_RESULT_SUCCESS);
@@ -656,7 +656,8 @@ namespace wheel
 			assert((*seekitf)->SetLoop(seekitf, SL_BOOLEAN_TRUE, 0, SL_TIME_UNKNOWN) == SL_RESULT_SUCCESS);
 		}
 
-		void setvolume(int v) {
+		void setvolume(int v)
+		{
 			SLmillibel maxvalue;
 			assert((*volumeitf)->GetMaxVolumeLevel(volumeitf, &maxvalue) == SL_RESULT_SUCCESS);
 			v = v * maxvalue / 1000;
