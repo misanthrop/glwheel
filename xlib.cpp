@@ -372,6 +372,7 @@ namespace wheel
 	void audiotrack::set(string&&) {}
 	void audiotrack::setvolume(int v) {}
 	void audiotrack::play(bool) {}
+	bool audiotrack::isplaying(){}
 
 	application app;
 }

@@ -10,7 +10,7 @@ namespace wheel
 
 	struct audiotrack
 	{
-		unique_ptr<nativeaudiotrack> native;
+		unique_ptr<nativeaudiotrack> native;		
 
 		audiotrack();
 		~audiotrack();
@@ -18,6 +18,7 @@ namespace wheel
 		void clear();
 		void set(string&&);
 		void setvolume(int v);
+		bool isplaying();
 		void play(bool = 1);
 		void stop() { play(0); }
 	};

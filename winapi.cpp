@@ -308,11 +308,20 @@ namespace wheel
 	struct nativeaudiotrack
 	{
 		string name;
+		bool isplaying;
 
-		void clear() { if(!name.empty()) winapi::mci("close " + name); }
+		void clear()
+		{
+			isplaying = false;
+			if(!name.empty()) winapi::mci("close " + name);
+		}
 		void set(string&& nm) { clear(); name = forward<string>(nm); winapi::mci("open " + name); }
 		void setvolume(int v) { winapi::mci("setaudio " + name + " volume to " + to_string(v)); }
-		void play(bool b) { winapi::mci((b ? "play ":"stop ") + name + (b ? " repeat":"")); }
+		void play(bool b)
+		{
+			isplaying = b;
+			winapi::mci((b ? "play ":"stop ") + name + (b ? " repeat":""));
+		}
 	};
 
 	audiotrack::audiotrack() : native(new nativeaudiotrack) {}
@@ -322,6 +331,7 @@ namespace wheel
 	void audiotrack::set(string&& nm) { native->set(forward<string>(nm)); }
 	void audiotrack::setvolume(int v) { native->setvolume(v); }
 	void audiotrack::play(bool b) { native->play(b); }
+	bool audiotrack::isplaying() { return native->isplaying; }
 
 	int watch(const char *, function<void(uint32_t,const char*)>) {} // unimplemented yet
 
