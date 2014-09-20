@@ -21,5 +21,6 @@ namespace wheel
 		bool isplaying();
 		void play(bool = 1);
 		void stop() { play(0); }
+		void toggle() { play(!isplaying()); }
 	};
 }
