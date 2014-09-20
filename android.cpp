@@ -621,9 +621,8 @@ namespace wheel
 		SLPlayItf playitf;
 		SLVolumeItf volumeitf;
 		SLSeekItf seekitf;
-		bool isplaying;
 
-		void clear() { isplaying = false; if(obj) { (*obj)->Destroy(obj); obj = 0; } }
+		void clear() { if(obj) { (*obj)->Destroy(obj); obj = 0; } }
 
 		void set(string&& fn)
 		{
@@ -658,17 +657,18 @@ namespace wheel
 
 		void setvolume(int v)
 		{
-			SLmillibel maxvalue;
-			assert((*volumeitf)->GetMaxVolumeLevel(volumeitf, &maxvalue) == SL_RESULT_SUCCESS);
-			v = v * maxvalue / 1000;
-			assert((*volumeitf)->SetVolumeLevel(volumeitf, v) == SL_RESULT_SUCCESS);
+			assert((*volumeitf)->SetVolumeLevel(volumeitf, v - 1000) == SL_RESULT_SUCCESS);
 		}
 
-		void play(bool b = 1)
+		bool isplaying() const
 		{
-			isplaying = b;
-			assert((*playitf)->SetPlayState(playitf, b ? SL_PLAYSTATE_PLAYING : SL_PLAYSTATE_PAUSED) == SL_RESULT_SUCCESS);
+			if(!obj) return 0;
+			SLuint32 state;
+			assert((*playitf)->GetPlayState(playitf, &state) == SL_RESULT_SUCCESS);
+			return state == SL_PLAYSTATE_PLAYING;
 		}
+
+		void play(bool b = 1) { assert((*playitf)->SetPlayState(playitf, b ? SL_PLAYSTATE_PLAYING : SL_PLAYSTATE_PAUSED) == SL_RESULT_SUCCESS); }
 	};
 
 	audiotrack::audiotrack() : native(new nativeaudiotrack) {}
@@ -678,7 +678,7 @@ namespace wheel
 	void audiotrack::set(string&& s) { native->set(forward<string>(s)); }
 	void audiotrack::setvolume(int v) { native->setvolume(v); }
 	void audiotrack::play(bool b) { native->play(b); }
-	bool audiotrack::isplaying() { return native->isplaying; }
+	bool audiotrack::isplaying() { return native->isplaying(); }
 
 	application app;
 }
