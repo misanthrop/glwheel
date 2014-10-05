@@ -79,7 +79,7 @@ make install-android
 ```
 ### Build instructions on Windows host
 
-Requires [MinGW](http://www.mingw.org) and [GLEW](http://glew.sourceforge.net). Suggested compiler distribution is [Nuwen MinGW](http://nuwen.net/mingw.html) already includes [GLEW](http://glew.sourceforge.net) library:
+Requires [MinGW](http://www.mingw.org) and [GLEW](http://glew.sourceforge.net). Suggested compiler distribution is [Nuwen MinGW](http://nuwen.net/mingw.html). It already includes [GLEW](http://glew.sourceforge.net) library. Build should be run from Bash-shell (e.g. *git-bash*), *rm* and *uname* tools should be accessible in $PATH:
 ```
 make
 ```
