@@ -88,3 +88,10 @@ namespace wheel
 		rect operator|(const point &v) const { return rect(*this) |= v; }
 	};
 }
+
+namespace std
+{
+	inline wheel::point min(const wheel::point& a, const wheel::point& b) { return wheel::point(min(a.x, b.x), min(a.y, b.y)); }
+	inline wheel::point max(const wheel::point& a, const wheel::point& b) { return wheel::point(max(a.x, b.x), max(a.y, b.y)); }
+	inline wheel::point abs(const wheel::point& v) { return wheel::point(abs(v[0]),abs(v[1])); }
+}
