@@ -62,3 +62,24 @@ sources	:= hello
 
 include glwheel/default.mk
 ```
+
+### Build instructions on Linux host
+
+Build for Linux using default compiler:
+```
+make
+```
+Build for Windows. Requires cross-compiler *i686-w64-mingw32-g++*, tested on Arch Linux:
+```
+make windows
+```
+Build for Android. Requires [Android NDK](https://developer.android.com/tools/sdk/ndk/index.html) r10. ANDROID_NDK environment variable should be set properly:
+```
+make install-android
+```
+### Build instructions on Windows host
+
+Requires [MinGW](http://www.mingw.org) and [GLEW](http://glew.sourceforge.net). Suggested compiler distribution is [Nuwen MinGW](http://nuwen.net/mingw.html) already includes [GLEW](http://glew.sourceforge.net) library:
+```
+make
+```
