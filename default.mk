@@ -112,9 +112,7 @@ $(foreach p,$(allplatforms), $(foreach a,$($p-arch), $(eval $(call rules,$p,$a))
 define androidmanifest
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-		package="$(android-package).$(target)"
-		android:versionCode="1"
-		android:versionName="1.0">
+		package="$(android-package).$(target)" android:versionCode="1" android:versionName="1.0">
 	<uses-sdk android:minSdkVersion="9" />
 	<uses-feature android:glEsVersion="0x00020000" android:required="true" />
 	<application android:label="$(target)" android:hasCode="false">

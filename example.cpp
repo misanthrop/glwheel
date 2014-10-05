@@ -3,21 +3,13 @@ using namespace wheel;
 
 struct example : widget
 {
-	float x = 0, y = 0;
-
-	void resize()
-	{
-	    (rect&)*this = rect(0,0,parent->width(),parent->height());
-	}
+	void resize() { set(0,0,parent->width(),parent->height()); }
 
 	void press(uint8_t k)
 	{
 		switch(k)
 		{
-			case key::lbutton:
-				x = 2.0*app.pointer().x/width() - 1;
-				y = 1 - 2.0*app.pointer().y/height();
-				break;
+			case key::lbutton: break; // left mouse button or touch screen
 			case key::f11: app.togglefullscreen(); break;
 			case key::esc: app.close(); break;
 		}
