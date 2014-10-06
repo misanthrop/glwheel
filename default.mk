@@ -86,6 +86,7 @@ $1:: $($1-$2-target)
 archive-$1:: $($1-archive)
 
 clean-$1:: clean-$1-$2
+	$(RM) -r .build/$1
 
 clean-$1-$2::
 	$(RM) -r .build/$1/$2
@@ -171,6 +172,9 @@ install-android: $(android-archive)
 	adb install -r $^
 
 clean:: $(addprefix clean-,$(platform))
+
+clean-all:
+	$(RM) -r .build
 
 install:: $(addprefix install-,$(platform))
 
