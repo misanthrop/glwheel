@@ -75,7 +75,7 @@ make windows
 ```
 Build for Android. Requires [Android NDK](https://developer.android.com/tools/sdk/ndk/index.html) r10. ANDROID_NDK environment variable should be set properly:
 ```
-make install-android
+make archive-android
 ```
 ### Build instructions on Windows host
 

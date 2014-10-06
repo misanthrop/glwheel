@@ -28,10 +28,10 @@ linux-x86_64-CXX	:= $(CXX)
 linux-x86-FLAGS		+= -m32
 linux-x86_64-FLAGS	+= -m64
 linux-CPPFLAGS		+= -O2
-linux-LDFLAGS		+= -lX11 -lGL
+linux-LDFLAGS		+= -s -lX11 -lGL
 linux-x86-target	:= $(target)32
 linux-x86_64-target := $(target)
-linux-archive		:= $(target).tar.gz
+linux-archive		:= $(target).tar.xz
 
 windows-arch		  := x86
 ifneq (,$(findstring windows,$(os)))
@@ -83,28 +83,34 @@ android-archive				 := $(target)-debug.apk
 define rules =
 $1:: $($1-$2-target)
 
+archive-$1:: $($1-archive)
+
 clean-$1:: clean-$1-$2
 
 clean-$1-$2::
 	$(RM) -r .build/$1/$2
 
+ifdef debug
+$1-$2-cflags = -g $(filter-out -Os -O1 -O2 -O3 -O4 -O5, $(FLAGS) $($1-FLAGS) $($1-$2-FLAGS) $(CPPFLAGS) $($1-CPPFLAGS) $($1-$2-CPPFLAGS) $(CFLAGS) $($1-CFLAGS) $($1-$2-CFLAGS))
+$1-$2-cxxflags = -g $(filter-out -Os -O1 -O2 -O3 -O4 -O5, $(FLAGS) $($1-FLAGS) $($1-$2-FLAGS) $(CPPFLAGS) $($1-CPPFLAGS) $($1-$2-CPPFLAGS) $(CXXFLAGS) $($1-CXXFLAGS) $($1-$2-CXXFLAGS))
+$1-$2-ldflags =  $(filter-out -s, $(FLAGS) $($1-FLAGS) $($1-$2-FLAGS) $(LDFLAGS) $($1-LDFLAGS) $($1-$2-LDFLAGS))
+else
+$1-$2-cflags = -DNDEBUG $(FLAGS) $($1-FLAGS) $($1-$2-FLAGS) $(CPPFLAGS) $($1-CPPFLAGS) $($1-$2-CPPFLAGS) $(CFLAGS) $($1-CFLAGS) $($1-$2-CFLAGS)
+$1-$2-cxxflags = -DNDEBUG $(FLAGS) $($1-FLAGS) $($1-$2-FLAGS) $(CPPFLAGS) $($1-CPPFLAGS) $($1-$2-CPPFLAGS) $(CXXFLAGS) $($1-CXXFLAGS) $($1-$2-CXXFLAGS)
+$1-$2-ldflags = $(FLAGS) $($1-FLAGS) $($1-$2-FLAGS) $(LDFLAGS) $($1-LDFLAGS) $($1-$2-LDFLAGS)
+endif
+
 .build/$1/$2/%.o: %.c
 	@mkdir -p $$(@D)
-	$($1-$2-CC) -MMD -MP -MF $$@.d \
-		$(FLAGS) $($1-FLAGS) $($1-$2-FLAGS) \
-		$(CPPFLAGS) $($1-CPPFLAGS) $($1-$2-CPPFLAGS) \
-		$(CFLAGS) $($1-CFLAGS) $($1-$2-CFLAGS) -c $$< -o $$@
+	$($1-$2-CC) -MMD -MP -MF $$@.d $$($1-$2-cflags) -c $$< -o $$@
 
 .build/$1/$2/%.o: %.cpp
 	@mkdir -p $$(@D)
-	$($1-$2-CXX) -MMD -MP -MF $$@.d \
-		$(FLAGS) $($1-FLAGS) $($1-$2-FLAGS) \
-		$(CPPFLAGS) $($1-CPPFLAGS) $($1-$2-CPPFLAGS) \
-		$(CXXFLAGS) $($1-CXXFLAGS) $($1-$2-CXXFLAGS) -c $$< -o $$@
+	$($1-$2-CXX) -MMD -MP -MF $$@.d $$($1-$2-cxxflags) -c $$< -o $$@
 
 $($1-$2-target): $(addprefix .build/$1/$2/,$(objs))
 	@mkdir -p $$(@D)
-	$($1-$2-CXX) $$^ $(FLAGS) $($1-FLAGS) $($1-$2-FLAGS) $(LDFLAGS) $($1-LDFLAGS) $($1-$2-LDFLAGS) -o $$@
+	$($1-$2-CXX) $$^ $$($1-$2-ldflags) -o $$@
 endef
 
 $(foreach p,$(allplatforms), $(foreach a,$($p-arch), $(eval $(call rules,$p,$a))))
