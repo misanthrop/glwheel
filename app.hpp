@@ -1,4 +1,6 @@
 #pragma once
+#include <cmath>
+#include <cstdlib>
 #include <string>
 #include "widget.hpp"
 #include "signals.hpp"
