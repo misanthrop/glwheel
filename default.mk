@@ -87,7 +87,7 @@ android-armeabi-v7a-target	 := .build/android/libs/armeabi-v7a/lib$(target).so
 android-mips-target			 := .build/android/libs/mips/lib$(target).so
 android-archive				 := $(target)-debug.apk
 
-define rules =
+define rules
 $1:: $($1-$2-target)
 
 archive-$1:: $($1-archive)
@@ -145,7 +145,7 @@ define androidmanifest
 endef
 export androidmanifest
 
-define link =
+define link
 $1$2: $2
 	@mkdir -p $$(@D)
 	ln -s $$(realpath $$^) $$@
