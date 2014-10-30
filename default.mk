@@ -6,6 +6,7 @@ objs	 := $(addsuffix .o,$(sources))
 .SUFFIXES:
 
 os := $(shell uname -s)
+arch := $(shell uname -m)
 
 ifneq (,$(findstring Linux,$(os)))
 	os := linux
@@ -20,20 +21,20 @@ platform			:= $(os)
 
 all:: $(platform)
 
-linux-arch			:= x86_64
-linux-x86-CC		:= $(CC)
-linux-x86-CXX		:= $(CXX)
+linux-arch			:= $(arch)
+linux-i686-CC		:= $(CC)
+linux-i686-CXX		:= $(CXX)
 linux-x86_64-CC		:= $(CC)
 linux-x86_64-CXX	:= $(CXX)
-linux-x86-FLAGS		+= -m32
+linux-i686-FLAGS	+= -m32
 linux-x86_64-FLAGS	+= -m64
 linux-CPPFLAGS		+= -O2
 linux-LDFLAGS		+= -s -lX11 -lGL
-linux-x86-target	:= $(target)32
+linux-i686-target	:= $(target)32
 linux-x86_64-target := $(target)
 linux-archive		:= $(target).tar.xz
 
-windows-arch		  := x86
+windows-arch		  := $(arch)
 ifneq (,$(findstring windows,$(os)))
 windows-x86-CC		  := $(CC)
 windows-x86-CXX		  := $(CXX)
