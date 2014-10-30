@@ -6,6 +6,7 @@ objs	 := $(addsuffix .o,$(sources))
 .SUFFIXES:
 
 os := $(shell uname -s)
+arch := $(shell uname -m)
 
 ifneq (,$(findstring Linux,$(os)))
 	os := linux
@@ -18,36 +19,36 @@ endif
 allplatforms		:= linux windows android
 platform			:= $(os)
 
-all:: $(platform)
+all:: $(platform)-$(arch)
 
-linux-arch			:= x86_64
-linux-x86-CC		:= $(CC)
-linux-x86-CXX		:= $(CXX)
+linux-arch			:= i686 x86_64
+linux-i686-CC		:= $(CC)
+linux-i686-CXX		:= $(CXX)
 linux-x86_64-CC		:= $(CC)
 linux-x86_64-CXX	:= $(CXX)
-linux-x86-FLAGS		+= -m32
+linux-i686-FLAGS	+= -m32
 linux-x86_64-FLAGS	+= -m64
 linux-CPPFLAGS		+= -O2
 linux-LDFLAGS		+= -s -lX11 -lGL
-linux-x86-target	:= $(target)32
+linux-i686-target	:= $(target)32
 linux-x86_64-target := $(target)
 linux-archive		:= $(target).tar.xz
 
-windows-arch		  := x86
+windows-arch		  := i686 x86_64
 ifneq (,$(findstring windows,$(os)))
-windows-x86-CC		  := $(CC)
-windows-x86-CXX		  := $(CXX)
+windows-i686-CC		  := $(CC)
+windows-i686-CXX	  := $(CXX)
 windows-x86_64-CC	  := $(CC)
 windows-x86_64-CXX	  := $(CXX)
 else
-windows-x86-CC		  := i686-w64-mingw32-gcc
-windows-x86-CXX		  := i686-w64-mingw32-g++
+windows-i686-CC		  := i686-w64-mingw32-gcc
+windows-i686-CXX	  := i686-w64-mingw32-g++
 windows-x86_64-CC	  := x86_64-w64-mingw32-gcc
 windows-x86_64-CXX	  := x86_64-w64-mingw32-g++
 endif
 windows-CPPFLAGS	  += -O2 -D_WIN32_WINNT=0x0500 -DUNICODE -DGLEW_STATIC
 windows-LDFLAGS		  += -static -Xlinker -subsystem=windows -lglew32 -lgdi32 -lopengl32 -lwinmm
-windows-x86-target	  := $(target).exe
+windows-i686-target	  := $(target).exe
 windows-x86_64-target := $(target)64.exe
 windows-archive		  := $(target).zip
 
@@ -88,7 +89,11 @@ android-mips-target			 := .build/android/libs/mips/lib$(target).so
 android-archive				 := $(target)-debug.apk
 
 define rules
-$1:: $($1-$2-target)
+$1:: $1-$2
+
+$1-$2:: $($1-$2-target)
+
+archive-$1:: $($1-archive)
 
 archive-$1:: $($1-archive)
 
