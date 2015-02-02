@@ -299,7 +299,8 @@ namespace wheel
 		return string(istreambuf_iterator<char>(f), istreambuf_iterator<char>());
 	}
 
-	point application::pointer() const { return winapi::m; }
+	int application::pointercount(int) const { return 1; }
+	point application::pointer(int, int) const { return winapi::m; }
 	void application::update() { widget::update(); }
 	bool application::show(bool b) { ShowWindow(winapi::wnd, b ? SW_SHOWMAXIMIZED:SW_SHOWMINIMIZED); return widget::show(b); }
 	void application::draw() { glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT); widget::draw(); flip(); }

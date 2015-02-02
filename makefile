@@ -1,3 +1,3 @@
 target := example
-sources	:= example
+sources := example
 include default.mk

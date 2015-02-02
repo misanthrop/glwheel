@@ -304,9 +304,6 @@ namespace wheel
 		}
 	}
 
-	void log(const string& s) { std::cout << s << endl; }
-	void err(const string& s) { std::cerr << s << endl; }
-
 	void application::process(int timeout)
 	{
 		while(xlib::dpy && xlib::qlen()) xlib::nextevent();
@@ -327,7 +324,8 @@ namespace wheel
 		title(s);
 	}
 
-	point application::pointer() const { return xlib::m; }
+	int application::pointercount(int) const { return *key::lbutton; }
+	point application::pointer(int, int) const { return xlib::m; }
 	void application::close() { xlib::clear(); }
 
 	void application::title(const string& s)
@@ -356,6 +354,9 @@ namespace wheel
 	void application::togglefullscreen() { xlib::fullscreen(2); }
 	void application::draw() { glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT); widget::draw(); flip(); }
 	void application::flip() { glXSwapBuffers(xlib::dpy, xlib::wnd); }
+
+	int application::orientation() const { return 1; }
+	void application::destroy() {}
 
 	string application::resource(const string& name)
 	{

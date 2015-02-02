@@ -20,7 +20,8 @@ namespace wheel
 		virtual void update() { for(widget *c : children) if(*c) c->update(); }
 		virtual widget *focus() { return at(pointer()); }
 		virtual void focus(widget *) {}
-		virtual point pointer() const { if(parent) return parent->pointer() - p; return point(); }
+		virtual int pointercount(int time = 0) const { return 1; }
+		virtual point pointer(int i = 0, int time = 0) const { if(parent) return parent->pointer(i, time) - p; return point(); }
 		virtual void pointermove() { if(widget *c = at(pointer())) c->pointermove(); }
 		virtual void scroll(float d) { if(widget *c = focus()) c->scroll(d); }
 		virtual void keycode(uint32_t k) { if(widget *c = focus()) c->keycode(k); }

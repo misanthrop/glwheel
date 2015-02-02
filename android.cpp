@@ -9,6 +9,7 @@
 #include <thread>
 #include <mutex>
 #include <string>
+#include <queue>
 #include <sstream>
 #include <cassert>
 #include <algorithm>
@@ -18,7 +19,8 @@
 #include <android/looper.h>
 #include <android/native_activity.h>
 #include <android/sensor.h>
-#include <android/log.h>
+#include <android/bitmap.h>
+#include "log.h"
 #include "app.hpp"
 #include "audio.hpp"
 
@@ -27,9 +29,6 @@ extern int main();
 namespace wheel
 {
 	using namespace std;
-
-	void log(const string& s) { __android_log_print(ANDROID_LOG_INFO, "glwheel", "%s", s.c_str()); }
-	void err(const string& s) { __android_log_print(ANDROID_LOG_ERROR, "glwheel", "%s", s.c_str()); }
 
 	namespace events
 	{
@@ -125,21 +124,13 @@ namespace wheel
 			key::unknown,	// AKEYCODE_BUTTON_MODE     = 110,
 		};
 
-		struct cmd
-		{
-			enum : uint8_t
-			{
-				inputchanged, initwnd, termwnd, resize, redraw, contentresize, focus, unfocus,
-				cfgchanged, lowmem, start, resume, save, pause, stop, destroy
-			};
-		};
+		struct cmd { enum : uint8_t { setinput, setwindow, focus, unfocus, cfgchanged, lowmem, resume, stop, destroy }; };
 
 		ANativeActivity *act;
 		std::mutex mutex;
 		std::condition_variable cond;
 		int msgpipe[2];
-		uint8_t state;
-		bool running, destroyed, saved;
+		bool running, destroyed;
 		AInputQueue* pendingInputQueue = 0;
 		ANativeWindow* pendingWindow = 0;
 		ALooper *looper = 0;
@@ -155,28 +146,36 @@ namespace wheel
 		EGLContext context = EGL_NO_CONTEXT;
 		EGLSurface surface;
 		EGLConfig glconfig;
-		size_t mn = 1;
-		point m[32];
-		bool alive = 1;
+		size_t mn[2] = {0,0};
+		point m[2][32];
+		bool alive;
+		int orientation;
+
+		JNIEnv *env; // native thread (C++ side)
+		struct { jclass cls; jmethodID moveToBack, fullscreen, screenOrientation; } WheelActivity;
 
 		int8_t readcmd()
 		{
 			int8_t cmd;
 			if(read(msgpipe[0], &cmd, sizeof(cmd)) == sizeof(cmd)) return cmd;
-			err("No data on command pipe!");
+			logerr("No data on command pipe!");
 			return -1;
 		}
 
-		void writecmd(int8_t cmd) { if(write(msgpipe[1], &cmd, sizeof(cmd)) != sizeof(cmd)) err(string("write failed: ") + strerror(errno)); }
+		void writecmd(int8_t cmd) { if(write(msgpipe[1], &cmd, sizeof(cmd)) != sizeof(cmd)) logerr("write failed: %s", strerror(errno)); }
 
 		void create(ANativeActivity *a)
 		{
+			logdbg("create()");
 			act = a;
-			state = 0;
-			running = destroyed = saved = 0;
+			alive = 1;
+			orientation = 0;
+			mn[0] = mn[1] = 0;
+			running = 0;
+			destroyed = 0;
 			pendingInputQueue = 0;
 			pendingWindow = 0;
-			if(pipe(msgpipe)) { err(string("could not create pipe: ") + strerror(errno)); return; }
+			if(pipe(msgpipe)) { logerr("could not create pipe %s", strerror(errno)); return; }
 			std::thread(main).detach();
 			std::unique_lock<std::mutex> lock(mutex);
 			cond.wait(lock, []{ return running; });
@@ -184,7 +183,7 @@ namespace wheel
 
 		void destroy()
 		{
-			log("destroy()");
+			logdbg("destroy()");
 			{
 				std::unique_lock<std::mutex> lock(mutex);
 				writecmd(cmd::destroy);
@@ -194,28 +193,27 @@ namespace wheel
 			close(msgpipe[1]);
 		}
 
-		void setinput(AInputQueue* inputQueue)
+		void setinput(AInputQueue* iq)
 		{
 			std::unique_lock<std::mutex> lock(mutex);
-			pendingInputQueue = inputQueue;
-			writecmd(cmd::inputchanged);
-			cond.wait(lock, [inputQueue]{ return inputQueue == pendingInputQueue; });
+			pendingInputQueue = iq;
+			writecmd(cmd::setinput);
+			cond.wait(lock, [iq]{ return inputQueue == iq; });
 		}
 
-		void setwindow(ANativeWindow* window)
+		void setwindow(ANativeWindow* w)
 		{
 			std::unique_lock<std::mutex> lock(mutex);
-			if(pendingWindow) writecmd(cmd::termwnd);
-			pendingWindow = window;
-			if(window) writecmd(cmd::initwnd);
-			cond.wait(lock, [window]{ return window == pendingWindow; });
+			pendingWindow = w;
+			writecmd(cmd::setwindow);
+			cond.wait(lock, [w]{ return window == w; });
 		}
 
-		void setstate(int8_t cmd)
+		void stop()
 		{
+			logdbg("stop()");
 			std::unique_lock<std::mutex> lock(mutex);
-			writecmd(cmd);
-			cond.wait(lock, [cmd]{ return state == cmd; });
+			writecmd(cmd::stop);
 		}
 
 		void processinput()
@@ -241,18 +239,15 @@ namespace wheel
 
 					case AINPUT_EVENT_TYPE_MOTION:
 					{
-						size_t prevn = mn;
-						point prevm[32]; memcpy(prevm, m, sizeof(m));
-						mn = std::min((size_t)32, AMotionEvent_getPointerCount(event));
+						mn[1] = mn[0];
+						memcpy(m[1], m[0], sizeof(m[0]));
+						mn[0] = std::min((size_t)32, AMotionEvent_getPointerCount(event));
 						int action = AMotionEvent_getAction(event) & AMOTION_EVENT_ACTION_MASK;
-//						constexpr uint8_t button[] = { key::lbutton, key::rbutton, key::mbutton };
-//						if(action == AMOTION_EVENT_ACTION_DOWN && mn != 1 && prevn == 1) if(key::state(*key::lbutton))
-//							key::state(key::lbutton) = 0;
-						for(size_t i = 0; i < mn; ++i) m[i] = point(AMotionEvent_getX(event, i), app.height() - AMotionEvent_getY(event, i));
+
+						for(size_t i = 0; i < mn[0]; ++i) m[0][i] = point(AMotionEvent_getX(event, i), app.height() - AMotionEvent_getY(event, i));
 						app.pointermove();
-						if(mn == 1)
+						if(mn[0] == 1)
 						{
-							//uint8_t b = button[mn-1];
 							switch(action)
 							{
 								case AMOTION_EVENT_ACTION_DOWN:
@@ -265,13 +260,14 @@ namespace wheel
 								case AMOTION_EVENT_ACTION_UP:
 									key::state(key::lbutton) = 0;
 									app.release(key::lbutton);
+									mn[0] = 0;
 									break;
 							}
 						}
-						if(mn == 2 && prevn == 2)
+						if(mn[0] == 2 && mn[1] == 2)
 						{
-							point d = m[1] - m[0], prevd = prevm[1] - prevm[0];
-							float diff2 = ~prevd - ~d;
+							point d = m[0][1] - m[0][0], pd = m[1][1] - m[1][0];
+							float diff2 = ~pd - ~d;
 							float absdiff = sqrt(abs(diff2));
 							if(absdiff > 16) app.scroll(diff2*4/absdiff/std::min(app.width(),app.height()));
 						}
@@ -281,7 +277,7 @@ namespace wheel
 				}
 				AInputQueue_finishEvent(inputQueue, event, processed);
 			}
-			else err(string("Failure reading next input event: ") + strerror(errno));
+			else logerr("Failure reading next input event: %s", strerror(errno));
 		}
 
 		void processsensor()
@@ -291,13 +287,22 @@ namespace wheel
 				ASensorEvent event;
 				while(ASensorEventQueue_getEvents(sensorEventQueue, &event, 1) > 0)
 					app.accel(event.acceleration.x, event.acceleration.y, event.acceleration.z);
+				float magnitude = event.acceleration.x*event.acceleration.x + event.acceleration.y*event.acceleration.y;
+				if(magnitude*4 > event.acceleration.z*event.acceleration.z)
+				{
+					const float pi = 3.14159265358979;
+					float angle = atan2(event.acceleration.y, event.acceleration.x);
+					if(abs(angle) < 0.5) orientation = 0;
+					if(abs(angle - pi*0.5) < 0.5) orientation = 1;
+					if(pi - abs(angle) < 0.5) orientation = 2;
+					if(abs(angle + pi*0.5) < 0.5) orientation = 3;
+				}
 			}
 		}
 
-		void initwnd()
+		void createsurface()
 		{
-			log("initwnd()");
-
+			logdbg("createsurface()");
 			EGLint format;
 			eglGetConfigAttrib(dpy, glconfig, EGL_NATIVE_VISUAL_ID, &format);
 			ANativeWindow_setBuffersGeometry(window, 0, 0, format);
@@ -307,25 +312,35 @@ namespace wheel
 			context = eglCreateContext(dpy, glconfig, 0, attribs);
 
 			eglMakeCurrent(dpy, surface, surface, context);
-			log((const char*)glGetString(GL_VERSION));
+			loginf("%s", (const char*)glGetString(GL_VERSION));
 			app.update();
-			sensorManager = ASensorManager_getInstance();
-			accelerometer = ASensorManager_getDefaultSensor(sensorManager, ASENSOR_TYPE_ACCELEROMETER);
-			sensorEventQueue = ASensorManager_createEventQueue(sensorManager, looper, 1, 0, 0);
-			events::fns[1] = processsensor;
-
 			app.active = 1;
 			app.reload();
 		}
 
-		void termwnd()
+		void clearsurface()
 		{
-			log("termwnd()");
+			logdbg("clearsurface()");
 			app.active = 0;
 			app.clear();
 			eglMakeCurrent(dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 			eglDestroySurface(dpy, surface);
 			if(context != EGL_NO_CONTEXT) eglDestroyContext(dpy, context);
+			context = EGL_NO_CONTEXT;
+		}
+
+		void clear()
+		{
+			logdbg("clear()");
+			if(sensorEventQueue) ASensorManager_destroyEventQueue(sensorManager, sensorEventQueue);
+			std::unique_lock<std::mutex> lock(mutex);
+			if(dpy != EGL_NO_DISPLAY) { eglTerminate(dpy); dpy = EGL_NO_DISPLAY; }
+			if(inputQueue) { AInputQueue_detachLooper(inputQueue); inputQueue = 0; }
+			if(config) { AConfiguration_delete(config); config = 0; }
+			env->DeleteGlobalRef(WheelActivity.cls);
+			act->vm->DetachCurrentThread();
+			destroyed = 1;
+			cond.notify_all();
 		}
 
 		int8_t processcmd()
@@ -333,7 +348,7 @@ namespace wheel
 			int8_t c = readcmd();
 			switch(c)
 			{
-				case cmd::inputchanged:
+				case cmd::setinput:
 				{
 					std::unique_lock<std::mutex> lock(mutex);
 					if(inputQueue)
@@ -341,8 +356,7 @@ namespace wheel
 						AInputQueue_detachLooper(inputQueue);
 						events::fns[0] = 0;
 					}
-					inputQueue = pendingInputQueue;
-					if(inputQueue)
+					if((inputQueue = pendingInputQueue))
 					{
 						events::fns[0] = processinput;
 						AInputQueue_attachLooper(inputQueue, looper, 0, 0, 0);
@@ -351,31 +365,23 @@ namespace wheel
 					break;
 				}
 
-				case cmd::initwnd:
-					{
-						std::unique_lock<std::mutex> lock(mutex);
-						window = pendingWindow;
-						cond.notify_all();
-					}
-					if(window) initwnd();
-					break;
-
-				case cmd::termwnd:
-					{
-						std::unique_lock<std::mutex> lock(mutex);
-						window = 0;
-						cond.notify_all();
-					}
-					termwnd();
-					break;
-
-				case cmd::resume: case cmd::start: case cmd::pause: case cmd::stop:
+				case cmd::setwindow:
 				{
 					std::unique_lock<std::mutex> lock(mutex);
-					state = c;
+					if(window) clearsurface();
+					if((window = pendingWindow)) createsurface();
 					cond.notify_all();
-					break;
 				}
+
+				case cmd::resume:
+					if(context != EGL_NO_CONTEXT) app.active = 1;
+					app.resumed();
+					break;
+
+				case cmd::stop:
+					app.active = 0;
+					app.paused();
+					break;
 
 				case cmd::focus:
 					if(accelerometer)
@@ -383,50 +389,43 @@ namespace wheel
 						ASensorEventQueue_enableSensor(sensorEventQueue, accelerometer);
 						ASensorEventQueue_setEventRate(sensorEventQueue, accelerometer, (1000L/60)*1000);
 					}
-					app.active = 1;
 					break;
 
 				case cmd::unfocus:
-					app.active = 0;
+//					app.active = 0;
 					if(accelerometer) ASensorEventQueue_disableSensor(sensorEventQueue, accelerometer);
 					break;
 
 				case cmd::cfgchanged:
 					AConfiguration_fromAssetManager(config, act->assetManager);
-					//print_cur_config(app);
 					break;
 
 				case cmd::destroy:
 					alive = 0;
 					break;
-
-				case cmd::save:
-				{
-					std::unique_lock<std::mutex> lock(mutex);
-					saved = 1;
-					cond.notify_all();
-					break;
-				}
 			}
 			return c;
 		}
 
-		void init()
+		void init() // native thread (C++ side)
 		{
+			logdbg("init()");
 			config = AConfiguration_new();
 			looper = ALooper_prepare(ALOOPER_PREPARE_ALLOW_NON_CALLBACKS);
 			dpy = eglGetDisplay(EGL_DEFAULT_DISPLAY);
 
+			act->vm->AttachCurrentThread(&env,0);
+			WheelActivity.moveToBack = env->GetMethodID(WheelActivity.cls, "moveToBack", "()V");
+			WheelActivity.fullscreen = env->GetMethodID(WheelActivity.cls, "fullscreen", "()V");
+			WheelActivity.screenOrientation = env->GetMethodID(WheelActivity.cls, "screenOrientation", "()I");
+
 			android::act->instance = &app;
 			AConfiguration_fromAssetManager(config, act->assetManager);
 
-			events::add(android::msgpipe[0], [&]() { processcmd(); });
+			events::add(msgpipe[0], [&]() { processcmd(); });
 
 			eglInitialize(dpy, 0, 0);
-
-			//uint8_t depth = 16, stencil = 0, r = 5, g = 6, b = 5, a = 8;
-			const EGLint attribs[] = { EGL_RED_SIZE,8, EGL_GREEN_SIZE,8, EGL_BLUE_SIZE,8, EGL_ALPHA_SIZE,8, EGL_DEPTH_SIZE,16,
-									   EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT, EGL_NONE };
+			const EGLint attribs[] = { EGL_RED_SIZE,8, EGL_GREEN_SIZE,8, EGL_BLUE_SIZE,8, EGL_ALPHA_SIZE,8, EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT, EGL_NONE };
 
 			EGLint numConfigs;
 			eglChooseConfig(dpy, attribs, &glconfig, 1, &numConfigs);
@@ -437,55 +436,27 @@ namespace wheel
 				cond.notify_all();
 			}
 
-			// I hate crap like the following
-			mkdir(act->internalDataPath,0770);
-			chdir(act->internalDataPath);
-			const char *dirs[] = { "scripts" };
-			for(const char *dirname : dirs) if(AAssetDir *dir = AAssetManager_openDir(act->assetManager, dirname))
-			{
-				log(string("dir: ") + dirname);
-				mkdir(dirname,0770);
-				while(const char *fn = AAssetDir_getNextFileName(dir))
-				{
-					string spath = dirname;
-					if(spath.size()) spath += "/";
-					spath += fn;
-					const char *path = spath.c_str();
-					AAsset *a = AAssetManager_open(act->assetManager, path, AASSET_MODE_BUFFER);
-					int f = open(path, O_CREAT|O_TRUNC|O_WRONLY, 0660);
-					log(string("file: ") + path);
-					if(f != -1) write(f, AAsset_getBuffer(a), AAsset_getLength(a));
-					else log(strerror(errno));
-					::close(f);
-					AAsset_close(a);
-				}
-				AAssetDir_close(dir);
-			}
+			while(!window) processcmd();
 
-			while(processcmd() != cmd::initwnd);
-			log("go!");
+			sensorManager = ASensorManager_getInstance();
+			accelerometer = ASensorManager_getDefaultSensor(sensorManager, ASENSOR_TYPE_ACCELEROMETER);
+			sensorEventQueue = ASensorManager_createEventQueue(sensorManager, looper, 1, 0, 0);
+			events::fns[1] = processsensor;
 		}
 
-		void clear()
-		{
-			if(dpy != EGL_NO_DISPLAY) eglTerminate(dpy);
-			std::unique_lock<std::mutex> lock(mutex);
-			if(inputQueue) { AInputQueue_detachLooper(inputQueue); inputQueue = 0; }
-			if(config) { AConfiguration_delete(config); config = 0; }
-			destroyed = 1;
-			cond.notify_all();
-		}
+		void movetoback() { env->CallVoidMethod(act->clazz, WheelActivity.moveToBack); }
+		void fullscreen() { env->CallVoidMethod(act->clazz, WheelActivity.fullscreen); }
 
-		inline void onDestroy(ANativeActivity*) { log("onDestroy"); destroy(); }
-		inline void onStart(ANativeActivity*) { log("onStart"); setstate(cmd::start); }
-		inline void onResume(ANativeActivity*) { log("onResume"); setstate(cmd::resume); }
-		inline void onPause(ANativeActivity*) { log("onPause"); setstate(cmd::pause); }
-		inline void onStop(ANativeActivity*) { log("onStop"); setstate(cmd::stop); }
+		inline void onDestroy(ANativeActivity*) { destroy(); }
+		inline void onStart(ANativeActivity*) {}
+		inline void onResume(ANativeActivity*) { writecmd(cmd::resume); }
+		inline void onPause(ANativeActivity*) { stop(); }
+		inline void onStop(ANativeActivity*) { stop(); }
 		inline void onCfgChanged(ANativeActivity*) { writecmd(cmd::cfgchanged); }
-		inline void onLowMemory(ANativeActivity*) { writecmd(cmd::lowmem); }
+		inline void onLowMemory(ANativeActivity*) {  logdbg("onLowMemory"); writecmd(cmd::lowmem); }
 		inline void onWindowFocus(ANativeActivity*, int focused) { writecmd(focused ? cmd::focus : cmd::unfocus); }
-		inline void onWindowCreated(ANativeActivity*, ANativeWindow* window) { setwindow(window); }
-		inline void onWindowDestroyed(ANativeActivity*, ANativeWindow* window) { setwindow(0); }
+		inline void onWindowCreated(ANativeActivity*, ANativeWindow* window) {setwindow(window); }
+		inline void onWindowDestroyed(ANativeActivity*, ANativeWindow*) { setwindow(0); }
 		inline void onInputQueueCreated(ANativeActivity*, AInputQueue* queue) { setinput(queue); }
 		inline void onInputQueueDestroyed(ANativeActivity*, AInputQueue*) { setinput(0); }
 		inline void* onSaveInstanceState(ANativeActivity*, size_t*) { return 0; }
@@ -540,26 +511,6 @@ namespace wheel
 		ALooper_removeFd(android::looper, fd);
 	}
 
-//	struct stream
-//	{
-//		AAsset *a = 0;
-
-//		stream() {}
-//		stream(const char *name) { open(name); }
-//		stream(stream&& s) : a(s.a) { s.a = 0; }
-//		stream(const stream&) = delete;
-//		~stream() { if(a) AAsset_close(a); }
-
-//		operator bool() const { return a; }
-//		bool eof() const { return !remain(); }
-
-//		void open(const char *name) { a = AAssetManager_open(android::act->assetManager, name, 0); }
-//		int read(char *buf, size_t n) { return AAsset_read(a, buf, n); }
-//		off_t seek(off_t off, int whence) { return AAsset_seek(a, off, whence); }
-//		off_t length() const { return AAsset_getLength(a); }
-//		off_t remain() const { return AAsset_getRemainingLength(a); }
-//	};
-
 	void application::process(int timeout)
 	{
 		int i, events;
@@ -570,6 +521,7 @@ namespace wheel
 
 	void application::init(const string&, int, int)
 	{
+		logdbg("application::init");
 		android::init();
 		set(0,0,0,0);
 		EGLint w,h;
@@ -578,28 +530,48 @@ namespace wheel
 		set(0,0,w,h);
 	}
 
+	void application::destroy()
+	{
+		children.clear();
+		resumed.clear(); paused.clear();
+		resized.clear();
+		keycoded.clear();
+		scrolled.clear();
+		pointermoved.clear();
+		pressed.clear(); released.clear();
+		accel.clear();
+		android::clear();
+	}
+
 	void application::title(const string&) {}
-	void application::fullscreen(bool) {}
+	void application::fullscreen(bool) { android::fullscreen(); }
 	void application::togglefullscreen() {}
+	void application::minimize() { android::movetoback(); }
 	void application::flip() { eglSwapBuffers(android::dpy, android::surface); }
-	point application::pointer() const { return android::m[0]; }
+	int application::pointercount(int time) const { return android::mn[time]; }
+	point application::pointer(int n, int time) const { return android::m[time][n]; }
 
 	void application::update()
 	{
-		EGLint w,h;
-		eglQuerySurface(android::dpy, android::surface, EGL_WIDTH, &w);
-		eglQuerySurface(android::dpy, android::surface, EGL_HEIGHT, &h);
-		if(width() != w || height() != h)
+		if(active)
 		{
-			set(0,0,w,h);
-			resize();
+			EGLint w,h;
+			eglQuerySurface(android::dpy, android::surface, EGL_WIDTH, &w);
+			eglQuerySurface(android::dpy, android::surface, EGL_HEIGHT, &h);
+			if(width() != w || height() != h)
+			{
+				set(0,0,w,h);
+				logdbg("resize %d %d", w, h);
+				resize();
+			}
 		}
 		widget::update();
 	}
 
 	bool application::show(bool) { return active; }
-	void application::draw() { glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT); widget::draw(); flip(); }
-	void application::close() { log("close()"); ANativeActivity_finish(android::act); }
+	void application::draw() { glClear(GL_COLOR_BUFFER_BIT); widget::draw(); flip(); }
+	void application::close() { logdbg("application::close()"); ANativeActivity_finish(android::act); }
+	int application::orientation() const { return android::orientation; }
 
 	string loadasset(const string& name)
 	{
@@ -609,7 +581,7 @@ namespace wheel
 			size_t size = AAsset_getLength(a);
 			return string(start, start + size);
 		}
-		err("Failed to load asset: " + name);
+		logerr("Failed to load asset: %s", name.c_str());
 		return string();
 	}
 
@@ -685,7 +657,7 @@ namespace wheel
 
 void ANativeActivity_onCreate(ANativeActivity* activity, void*, size_t)
 {
-	wheel::log("ANativeActivity_onCreate");
+	logdbg("ANativeActivity_onCreate");
 	activity->callbacks->onDestroy = wheel::android::onDestroy;
 	activity->callbacks->onStart = wheel::android::onStart;
 	activity->callbacks->onResume = wheel::android::onResume;
@@ -699,5 +671,15 @@ void ANativeActivity_onCreate(ANativeActivity* activity, void*, size_t)
 	activity->callbacks->onNativeWindowDestroyed = wheel::android::onWindowDestroyed;
 	activity->callbacks->onInputQueueCreated = wheel::android::onInputQueueCreated;
 	activity->callbacks->onInputQueueDestroyed = wheel::android::onInputQueueDestroyed;
+
+	JNIEnv *env = activity->env;
+	jclass NativeActivity = env->FindClass("android/app/NativeActivity");
+	jmethodID NativeActivity_getClassLoader = env->GetMethodID(NativeActivity, "getClassLoader", "()Ljava/lang/ClassLoader;");
+	jobject classLoader = env->CallObjectMethod(activity->clazz, NativeActivity_getClassLoader);
+	jclass ClassLoader = env->FindClass("java/lang/ClassLoader");
+	jmethodID ClassLoader_loadClass = env->GetMethodID(ClassLoader, "loadClass", "(Ljava/lang/String;)Ljava/lang/Class;");
+
+	wheel::android::WheelActivity.cls = (jclass)env->CallObjectMethod(classLoader, ClassLoader_loadClass, env->NewStringUTF("com/wheel/WheelActivity"));
+	wheel::android::WheelActivity.cls = (jclass)env->NewGlobalRef(wheel::android::WheelActivity.cls);
 	wheel::android::create(activity);
 }

@@ -9,11 +9,9 @@ namespace wheel
 {
 	using namespace std;
 
-	void log(const string&);
-	void err(const string&);
-
 	struct application : widget
 	{
+		sig<void()> resumed, paused;
 		sig<void()> resized;
 		sig<void(uint32_t)> keycoded;
 		sig<void(float)> scrolled;
@@ -25,12 +23,15 @@ namespace wheel
 		void process(int timeout = -1);
 		bool alive() const;
 		void init(const string& title, int w = 0, int h = 0);
+		void destroy();
 		void title(const string&);
 		void fullscreen(bool);
 		void togglefullscreen();
+		void minimize();
 		void flip();
 		string resource(const string&);
-		point pointer() const;
+		int pointercount(int time = 0) const;
+		point pointer(int i = 0, int time = 0) const;
 		void update();
 		bool show(bool);
 		void draw();
@@ -41,6 +42,7 @@ namespace wheel
 		void press(uint8_t k) { pressed(k); widget::press(k); }
 		void release(uint8_t k) { released(k); widget::release(k); }
 		void resize() { resized(); widget::resize(); }
+		int orientation() const;
 	};
 
 	int watch(const char *, function<void(uint32_t,const char*)>);

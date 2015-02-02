@@ -18,6 +18,8 @@ endif
 
 allplatforms		:= linux windows android
 platform			:= $(os)
+build				?= 1
+version				?= 1.0
 
 all:: $(platform)-$(arch)
 
@@ -52,8 +54,8 @@ windows-i686-target	  := $(target).exe
 windows-x86_64-target := $(target)64.exe
 windows-archive		  := $(target).zip
 
-android-apilevel			 := 10
-android-package				 := com.glwheel
+android-apilevel			 ?= 10
+android-package				 ?= com.wheellabs.$(target)
 android-arch				 := x86 armeabi armeabi-v7a mips
 # comming soon x86_64 arm64-v8a mips64
 android-CC					 := $(ANDROID_NDK)/toolchains/llvm-3.5/prebuilt/linux-x86_64/bin/clang
@@ -75,25 +77,23 @@ android-mips-FLAGS			 += -gcc-toolchain $(ANDROID_NDK)/toolchains/mipsel-linux-a
 android-x86-CPPFLAGS		 += -O2 -fstrict-aliasing -fPIC -fstack-protector -I$(ANDROID_NDK)/platforms/android-9/arch-x86/usr/include
 android-armeabi-CPPFLAGS     += -Os -march=armv5te -mtune=xscale -msoft-float -mthumb -fno-strict-aliasing -fpic -fstack-protector -fno-integrated-as -I$(ANDROID_NDK)/platforms/android-9/arch-arm/usr/include
 android-armeabi-v7a-CPPFLAGS += -Os -march=armv7-a -mfloat-abi=softfp -mfpu=vfpv3-d16 -mthumb -fno-strict-aliasing -fpic -fstack-protector -fno-integrated-as -I$(ANDROID_NDK)/platforms/android-9/arch-arm/usr/include
-android-mips-CPPFLAGS		 += -O2 -finline-functions -fmessage-length=0 -fno-strict-aliasing -fpic -I$(ANDROID_NDK)/platforms/android-9/arch-mips/usr/include
+android-mips-CPPFLAGS		 += -O2 -fmessage-length=0 -fno-strict-aliasing -fpic -I$(ANDROID_NDK)/platforms/android-9/arch-mips/usr/include
 android-CXXFLAGS			 += -I$(ANDROID_NDK)/sources/cxx-stl/gnu-libstdc++/4.8/include -I$(ANDROID_NDK)/sources/cxx-stl/gnu-libstdc++/4.8/libs/$2/include -I$(ANDROID_NDK)/sources/cxx-stl/gnu-libstdc++/4.8/include/backward
-android-LDFLAGS				 += -Wl,-soname,$(notdir $$@) -shared $(ANDROID_NDK)/sources/cxx-stl/gnu-libstdc++/4.8/libs/$2/libgnustl_static.a -lgcc -Wl,--no-undefined -Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now -lc -lm -llog -latomic -landroid -lEGL -lGLESv2 -lOpenSLES
+android-LDFLAGS				 += -s -Wl,-soname,$(notdir $$@) -shared $(ANDROID_NDK)/sources/cxx-stl/gnu-libstdc++/4.8/libs/$2/libgnustl_static.a -lgcc -Wl,--no-undefined -Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now -lc -lm -llog -latomic -landroid -ljnigraphics -lEGL -lGLESv2 -lOpenSLES
 android-x86-LDFLAGS			 += --sysroot=$(ANDROID_NDK)/platforms/android-14/arch-x86 -L$(ANDROID_NDK)/platforms/android-14/arch-x86/usr/lib
 android-armeabi-LDFLAGS		 += --sysroot=$(ANDROID_NDK)/platforms/android-14/arch-arm -L$(ANDROID_NDK)/platforms/android-14/arch-arm/usr/lib
 android-armeabi-v7a-LDFLAGS	 += --sysroot=$(ANDROID_NDK)/platforms/android-14/arch-arm -L$(ANDROID_NDK)/platforms/android-14/arch-arm/usr/lib
 android-mips-LDFLAGS		 += --sysroot=$(ANDROID_NDK)/platforms/android-14/arch-mips -L$(ANDROID_NDK)/platforms/android-14/arch-mips/usr/lib
-android-x86-target			 := .build/android/libs/x86/lib$(target).so
-android-armeabi-target		 := .build/android/libs/armeabi/lib$(target).so
-android-armeabi-v7a-target	 := .build/android/libs/armeabi-v7a/lib$(target).so
-android-mips-target			 := .build/android/libs/mips/lib$(target).so
-android-archive				 := $(target)-debug.apk
+android-x86-target			 := .build/android/bin/lib/x86/lib$(target).so
+android-armeabi-target		 := .build/android/bin/lib/armeabi/lib$(target).so
+android-armeabi-v7a-target	 := .build/android/bin/lib/armeabi-v7a/lib$(target).so
+android-mips-target			 := .build/android/bin/lib/mips/lib$(target).so
+android-archive				 := $(target).apk
 
 define rules
-$1:: $1-$2
+build-$1:: $1-$2
 
 $1-$2:: $($1-$2-target)
-
-archive-$1:: $($1-archive)
 
 archive-$1:: $($1-archive)
 
@@ -101,7 +101,7 @@ clean-$1:: clean-$1-$2
 	$(RM) -r .build/$1
 
 clean-$1-$2::
-	$(RM) -r .build/$1/$2
+	$(RM) -r .build/$1/obj/$2
 
 ifdef debug
 $1-$2-cflags = -g $(filter-out -Os -O1 -O2 -O3 -O4 -O5, $(FLAGS) $($1-FLAGS) $($1-$2-FLAGS) $(CPPFLAGS) $($1-CPPFLAGS) $($1-$2-CPPFLAGS) $(CFLAGS) $($1-CFLAGS) $($1-$2-CFLAGS))
@@ -113,15 +113,15 @@ $1-$2-cxxflags = -DNDEBUG $(FLAGS) $($1-FLAGS) $($1-$2-FLAGS) $(CXXFLAGS) $($1-C
 $1-$2-ldflags = $(FLAGS) $($1-FLAGS) $($1-$2-FLAGS) $(LDFLAGS) $($1-LDFLAGS) $($1-$2-LDFLAGS)
 endif
 
-.build/$1/$2/%.o: %.c
+.build/$1/obj/$2/%.o: %.c
 	@mkdir -p $$(@D)
 	$($1-$2-CC) -MMD -MP -MF $$@.d $$($1-$2-cflags) -c $$< -o $$@
 
-.build/$1/$2/%.o: %.cpp
+.build/$1/obj/$2/%.o: %.cpp
 	@mkdir -p $$(@D)
 	$($1-$2-CXX) -MMD -MP -MF $$@.d $$($1-$2-cxxflags) -c $$< -o $$@
 
-$($1-$2-target): $(addprefix .build/$1/$2/,$(objs))
+$($1-$2-target): $(addprefix .build/$1/obj/$2/,$(objs))
 	@mkdir -p $$(@D)
 	$($1-$2-CXX) $$^ $$($1-$2-ldflags) -o $$@
 endef
@@ -131,15 +131,21 @@ $(foreach p,$(allplatforms), $(foreach a,$($p-arch), $(eval $(call rules,$p,$a))
 define androidmanifest
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-		package="$(android-package).$(target)" android:versionCode="1" android:versionName="1.0">
-	<uses-sdk android:minSdkVersion="9" />
+		package="$(android-package)" android:versionCode="$(build)" android:versionName="$(version)">
+	<uses-sdk android:minSdkVersion="15" />
 	<uses-feature android:glEsVersion="0x00020000" android:required="true" />
-	<application android:label="$(target)" android:hasCode="false">
-		<activity android:name="android.app.NativeActivity"
+	<application android:label="$(target)" android:icon="@drawable/icon">
+		<activity android:name="com.wheel.WheelActivity"
 				android:label="$(target)"
+				android:screenOrientation="landscape"
+				android:icon="@drawable/icon"
 				android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
-				android:configChanges="orientation|keyboardHidden">
+				android:configChanges="orientation|screenSize|keyboardHidden">
 			<meta-data android:name="android.app.lib_name" android:value="$(target)" />
+			<intent-filter>
+				<action android:name="android.media.action.STILL_IMAGE_CAMERA" />
+				<category android:name="android.intent.category.DEFAULT" />
+			</intent-filter>
 			<intent-filter>
 				<action android:name="android.intent.action.MAIN" />
 				<category android:name="android.intent.category.LAUNCHER" />
@@ -158,29 +164,46 @@ endef
 
 $(foreach x,$(data),$(eval $(call link,.build/android/assets/,$x)))
 
-.build/android/AndroidManifest.xml:
+$(eval $(call link,.build/android/res/drawable/,icon.png))
+
+.build/android/AndroidManifest.xml: glwheel/default.mk
 	@mkdir -p $(@D)
+	@echo Generating manifest
 	echo "$$androidmanifest" >$@
 
-.build/android/default.properties:
+.build/android/cls/com/wheel/WheelActivity.class: glwheel/WheelActivity.java
 	@mkdir -p $(@D)
-	@echo "target=android-$(android-apilevel)" >$@
+	javac -d .build/android/cls -classpath .build/android/cls -bootclasspath /opt/android-sdk/platforms/android-15/android.jar -sourcepath glwheel -target 1.5 -source 1.5 $^
 
-.build/android/build.xml: .build/android/AndroidManifest.xml .build/android/default.properties
-	android update project -p .build/android -n $(target) -s
+.build/android/bin/classes.dex: .build/android/cls/com/wheel/WheelActivity.class
+	@mkdir -p $(@D)
+	$(ANDROID_HOME)/build-tools/21.1.2/dx --dex --output $@ .build/android/cls /opt/android-sdk/tools/support/annotations.jar
+
+.build/android/$(target)-unsigned.apk: build-android .build/android/AndroidManifest.xml .build/android/res/drawable/icon.png $(addprefix .build/android/assets/,$(data)) .build/android/bin/classes.dex
+	$(ANDROID_HOME)/build-tools/21.1.2/aapt p -f -M .build/android/AndroidManifest.xml -S .build/android/res -A .build/android/assets -I /opt/android-sdk/platforms/android-15/android.jar -F $@ .build/android/bin
+
+$(target)-debug.apk: .build/android/$(target)-unsigned.apk
+	jarsigner -sigalg SHA1withRSA -digestalg SHA1 -keystore ~/.android/debug.keystore -storepass android $< androiddebugkey
+	$(ANDROID_HOME)/build-tools/21.1.2/zipalign -f 4 $< $@
+
+$(target).apk: .build/android/$(target)-unsigned.apk
+	jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore ~/fun/.keystore $< $(target)
+	$(ANDROID_HOME)/build-tools/21.1.2/zipalign -f 4 $< $@
 
 $(windows-archive): windows
 	zip -r $@ $(foreach a,$(windows-arch),$(windows-$a-target)) $(data)
 
-$(android-archive): .build/android/build.xml $(addprefix .build/android/assets/,$(data)) android
-	ant debug -f $<
-	@mv .build/android/bin/$@ $@
+linux: build-linux
+
+windows: build-windows
+
+android: $(target)-debug.apk
 
 install-linux: linux
 
 install-windows: windows
 
-install-android: $(android-archive)
+install-android: $(target)-debug.apk
 	adb install -r $^
 
 clean:: $(addprefix clean-,$(platform))
