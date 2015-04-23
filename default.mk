@@ -32,7 +32,7 @@ linux-i686-FLAGS	+= -m32
 linux-x86_64-FLAGS	+= -m64
 linux-CPPFLAGS		+= -O2
 linux-LDFLAGS		+= -s -lX11 -lGL
-linux-i686-target	:= $(target)32
+linux-i686-target	:= $(target).32
 linux-x86_64-target := $(target)
 linux-archive		:= $(target).tar.xz
 
@@ -51,7 +51,7 @@ endif
 windows-CPPFLAGS	  += -O2 -D_WIN32_WINNT=0x0500 -DUNICODE -DGLEW_STATIC
 windows-LDFLAGS		  += -static -Xlinker -subsystem=windows -lglew32 -lgdi32 -lopengl32 -lwinmm
 windows-i686-target	  := $(target).exe
-windows-x86_64-target := $(target)64.exe
+windows-x86_64-target := $(target).64.exe
 windows-archive		  := $(target).zip
 
 android-apilevel			 ?= 10
@@ -134,18 +134,13 @@ define androidmanifest
 		package="$(android-package)" android:versionCode="$(build)" android:versionName="$(version)">
 	<uses-sdk android:minSdkVersion="15" />
 	<uses-feature android:glEsVersion="0x00020000" android:required="true" />
-	<application android:label="$(target)" android:icon="@drawable/icon">
+	<application android:label="$(name)" android:icon="@drawable/icon">
 		<activity android:name="com.wheel.WheelActivity"
-				android:label="$(target)"
 				android:screenOrientation="landscape"
 				android:icon="@drawable/icon"
 				android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
 				android:configChanges="orientation|screenSize|keyboardHidden">
 			<meta-data android:name="android.app.lib_name" android:value="$(target)" />
-			<intent-filter>
-				<action android:name="android.media.action.STILL_IMAGE_CAMERA" />
-				<category android:name="android.intent.category.DEFAULT" />
-			</intent-filter>
 			<intent-filter>
 				<action android:name="android.intent.action.MAIN" />
 				<category android:name="android.intent.category.LAUNCHER" />
