@@ -352,6 +352,7 @@ namespace wheel
 	void application::update() { widget::update(); }
 	void application::fullscreen(bool b) { xlib::fullscreen(b); }
 	void application::togglefullscreen() { xlib::fullscreen(2); }
+	void application::minimize() {}
 	void application::draw() { glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT); widget::draw(); flip(); }
 	void application::flip() { glXSwapBuffers(xlib::dpy, xlib::wnd); }
 

@@ -291,6 +291,7 @@ namespace wheel
 	void application::title(const string& s) { winapi::title(s); }
 	void application::fullscreen(bool b) { winapi::fullscreen(b); }
 	void application::togglefullscreen() { fullscreen(!winapi::fs); }
+	void application::minimize() {}
 	void application::flip() { SwapBuffers(winapi::dc); }
 
 	string application::resource(const string& name)
