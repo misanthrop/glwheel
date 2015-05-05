@@ -1,3 +1,4 @@
+glwheel  ?= $(dir $(lastword $(MAKEFILE_LIST)))
 CXXFLAGS += -std=c++11
 objs	 := $(addsuffix .o,$(sources))
 
@@ -16,8 +17,9 @@ ifneq (,$(findstring MINGW,$(os)))
 	os := windows
 endif
 
-allplatforms		:= linux windows android
+allplatforms		:= linux windows android wayland
 platform			:= $(os)
+name				?= $(target)
 build				?= 1
 version				?= 1.0
 
@@ -161,21 +163,22 @@ $(foreach x,$(data),$(eval $(call link,.build/android/assets/,$x)))
 
 $(eval $(call link,.build/android/res/drawable/,icon.png))
 
-.build/android/AndroidManifest.xml: glwheel/default.mk
+.build/android/AndroidManifest.xml: $(glwheel)default.mk
 	@mkdir -p $(@D)
 	@echo Generating manifest
 	echo "$$androidmanifest" >$@
 
-.build/android/cls/com/wheel/WheelActivity.class: glwheel/WheelActivity.java
+.build/android/cls/com/wheel/WheelActivity.class: $(glwheel)WheelActivity.java
 	@mkdir -p $(@D)
-	javac -d .build/android/cls -classpath .build/android/cls -bootclasspath /opt/android-sdk/platforms/android-15/android.jar -sourcepath glwheel -target 1.5 -source 1.5 $^
+	javac -d .build/android/cls -classpath .build/android/cls -bootclasspath /opt/android-sdk/platforms/android-15/android.jar -sourcepath $(glwheel) -target 1.5 -source 1.5 $^
 
 .build/android/bin/classes.dex: .build/android/cls/com/wheel/WheelActivity.class
 	@mkdir -p $(@D)
 	$(ANDROID_HOME)/build-tools/21.1.2/dx --dex --output $@ .build/android/cls /opt/android-sdk/tools/support/annotations.jar
 
 .build/android/$(target)-unsigned.apk: build-android .build/android/AndroidManifest.xml .build/android/res/drawable/icon.png $(addprefix .build/android/assets/,$(data)) .build/android/bin/classes.dex
-	$(ANDROID_HOME)/build-tools/21.1.2/aapt p -f -M .build/android/AndroidManifest.xml -S .build/android/res -A .build/android/assets -I /opt/android-sdk/platforms/android-15/android.jar -F $@ .build/android/bin
+	@mkdir -p $(@D)/assets
+	$(ANDROID_HOME)/build-tools/21.1.2/aapt p -f -M $(@D)/AndroidManifest.xml -S $(@D)/res -A $(@D)/assets -I /opt/android-sdk/platforms/android-15/android.jar -F $@ $(@D)/bin
 
 $(target)-debug.apk: .build/android/$(target)-unsigned.apk
 	jarsigner -sigalg SHA1withRSA -digestalg SHA1 -keystore ~/.android/debug.keystore -storepass android $< androiddebugkey

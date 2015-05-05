@@ -9,10 +9,10 @@
 #include <X11/Xatom.h>
 #include <sys/poll.h>
 #include <cstring>
+#include <cassert>
 #include <iostream>
 #include <fstream>
 #include "app.hpp"
-#include "audio.hpp"
 #include "utf.hpp"
 
 namespace wheel
@@ -23,25 +23,35 @@ namespace wheel
 		pollfd fds[64]; // in honor of Windows
 		function<void()> fns[64];
 
-		void add(int fd, function<void()> fn) { fds[n] = pollfd{fd,POLLIN}; fns[n] = fn; ++n; }
+		void add(int fd, function<void()> fn) { fds[n] = pollfd{fd, POLLIN}; fns[n] = fn; ++n; }
 		void remove(int fd) { for(int i = 0; i < n; ++i) if(fds[i].fd == fd) { --n; swap(fds[i],fds[n]); swap(fns[i],fns[n]); return; } }
+
+		void process(int timeout)
+		{
+			while(int r = poll(fds, n, timeout))
+			{
+				if(r < 0) break;
+				for(int i = 0; i < n; ++i) if(fds[i].revents) { fns[i](); fds[i].revents = 0; }
+				timeout = 0;
+			}
+		}
 	}
+
+	constexpr char const*const atomnames[] = { "UTF8_STRING", "WM_DELETE_WINDOW", "_NET_WM_NAME", "_NET_WM_STATE", "_NET_WM_STATE_FULLSCREEN" };
 
 	namespace xlib
 	{
-		constexpr char const*const atomnames[] = { "UTF8_STRING", "WM_DELETE_WINDOW", "_NET_WM_NAME", "_NET_WM_STATE", "_NET_WM_STATE_FULLSCREEN" };
-
 		struct atoms
 		{
 			static constexpr size_t n = sizeof(atomnames)/sizeof(atomnames[0]);
 			Atom id[n];
 
-			static constexpr bool isequal(const char *a, const char *b) { return *a && *b ? isequal(a+1,b+1) : !*a && !*b; }
-			static constexpr int find(const char *nm, int i = 0) { return isequal(nm,atomnames[i]) ? i : find(nm,i+1); }
+			static constexpr bool isequal(const char *a, const char *b) { return *a && *b ? isequal(a + 1, b + 1) : !*a && !*b; }
+			static constexpr int find(const char *nm, int i = 0) { return isequal(nm, atomnames[i]) ? i : find(nm, i+1); }
 			Atom& operator[](const char *nm) { return id[find(nm)]; }
 		};
 
-		inline uint8_t key(XKeyEvent *e)
+		inline key tokey(XKeyEvent *e)
 		{
 			KeySym k = XLookupKeysym(e,1);
 			switch(k)
@@ -78,8 +88,8 @@ namespace wheel
 				case XK_Meta_R:
 				case XK_ISO_Level3_Shift: // AltGr on at least some machines
 				case XK_Alt_R:        return key::ralt;
-				case XK_Super_L:      return key::lmenu;
-				case XK_Super_R:      return key::rmenu;
+				case XK_Super_L:      return key::lsuper;
+				case XK_Super_R:      return key::rsuper;
 				case XK_Menu:         return key::menu;
 				case XK_Num_Lock:     return key::numlock;
 				case XK_Caps_Lock:    return key::capslock;
@@ -142,7 +152,7 @@ namespace wheel
 				{
 					KeySym uc;
 					XConvertCase(k,&k,&uc);
-					if(32 <= k && k < 255) return (uint8_t)k;
+					if(32 <= k && k < 255) return (wheel::key)k;
 					return key::unknown;
 				}
 			}
@@ -151,24 +161,19 @@ namespace wheel
 		Display *dpy = 0;
 		XIM im;
 		XIC ic;
-		xlib::atoms atom;
+		atoms atom;
 		unsigned NumLockMask;
-
-		// window
 		GLXContext ctx = 0;
 		Visual *vis = 0;
 		Window wnd;
-		point m;
+		bool visible = 0;
 
-		inline int fd() { return ConnectionNumber(dpy); }
-		inline int screen() { return DefaultScreen(dpy); }
-		inline Window root() { return RootWindow(dpy,screen()); }
-		inline int width() { return DisplayWidth(dpy,screen()); }
-		inline int height() { return DisplayHeight(dpy,screen()); }
-		inline int depth() { return DefaultDepth(dpy,screen()); }
-		inline Visual *visual() { return DefaultVisual(dpy,screen()); }
-		inline Colormap colormap() { return DefaultColormap(dpy,screen()); }
-		inline int qlen() { return QLength(dpy); }
+		void clear()
+		{
+			if(wnd) { XDestroyWindow(dpy, wnd); wnd = 0; }
+			if(ctx) { glXMakeCurrent(dpy, 0, 0); glXDestroyContext(dpy, ctx); ctx = 0; }
+			if(dpy) { events::remove(ConnectionNumber(dpy)); XSync(dpy, 0); XDestroyIC(ic); XCloseIM(im); XCloseDisplay(dpy); dpy = 0; }
+		}
 
 		inline unsigned numlock()
 		{
@@ -186,10 +191,10 @@ namespace wheel
 			e.message_type = type;
 			e.format = 32;
 			e.data.l[0] = d0; e.data.l[1] = d1; e.data.l[2] = d2; e.data.l[3] = d3; e.data.l[4] = d4;
-			XSendEvent(dpy, root(), 0, mask, (XEvent*)&e);
+			XSendEvent(dpy, RootWindow(dpy, DefaultScreen(dpy)), 0, mask, (XEvent*)&e);
 		}
 
-		void fullscreen(int b) { sendclient(wnd, atom["_NET_WM_STATE"], StructureNotifyMask, b, atom["_NET_WM_STATE_FULLSCREEN"]); }
+		inline void fullscreen(int b) { sendclient(wnd, atom["_NET_WM_STATE"], StructureNotifyMask, b, atom["_NET_WM_STATE_FULLSCREEN"]); }
 
 		void nextevent()
 		{
@@ -198,9 +203,8 @@ namespace wheel
 			{
 				case KeyPress:
 				{
-					uint8_t k = xlib::key(&event.xkey);
-					key::state(k) = 1; app.press(k);
-					if(!key::lalt && !key::lcontrol && !key::lmenu && !key::ralt && !key::rcontrol && !key::rmenu) if(' ' <= k && k < key::del)
+					wheel::key k = tokey(&event.xkey); *k = true; if(app->pressed) app->pressed(k);
+					if(!key::lalt && !key::lcontrol && !key::lsuper && !key::ralt && !key::rcontrol && !key::rsuper) if(key::space <= k && k < key::del)
 					{
 						char c[16];
 						Status stat;
@@ -208,7 +212,7 @@ namespace wheel
 						{
 							uint32_t uc;
 							utf8to32(c, c + n, &uc);
-							app.keycode(uc);
+							if(app->keytyped) app->keytyped(uc);
 						}
 					}
 					break;
@@ -223,46 +227,45 @@ namespace wheel
 						if(nextEvent.type == KeyPress && nextEvent.xkey.window == event.xkey.window &&
 						   nextEvent.xkey.keycode == event.xkey.keycode && nextEvent.xkey.time - event.xkey.time < 20) break;
 					}
-					uint8_t k = xlib::key(&event.xkey);
-					key::state(k) = 0; app.release(k);
+					wheel::key k = tokey(&event.xkey); *k = false; if(app->released) app->released(k);
 					break;
 				}
 
 				case ButtonPress:
-					m = point(event.xbutton.x, app.height() - event.xbutton.y);
+					app->pointers[0] = { (float)event.xbutton.x, (float)event.xbutton.y };
 					switch(event.xbutton.button)
 					{
-						case Button1: key::state(key::lbutton) = 1; app.press(key::lbutton); break;
-						case Button2: key::state(key::mbutton) = 1; app.press(key::mbutton); break;
-						case Button3: key::state(key::rbutton) = 1; app.press(key::rbutton); break;
-						case Button4: app.scroll(-1); break;
-						case Button5: app.scroll(+1); break;
+						case Button1: *key::lbutton = true; if(app->pressed) app->pressed(key::lbutton); break;
+						case Button2: *key::mbutton = true; if(app->pressed) app->pressed(key::mbutton); break;
+						case Button3: *key::rbutton = true; if(app->pressed) app->pressed(key::rbutton); break;
+						case Button4: if(app->scrolled) app->scrolled(-1); break;
+						case Button5: if(app->scrolled) app->scrolled(+1); break;
 					}
 					break;
 
 				case ButtonRelease:
 					switch(event.xbutton.button)
 					{
-						case Button1: key::state(key::lbutton) = 0; app.release(key::lbutton); break;
-						case Button2: key::state(key::mbutton) = 0; app.release(key::mbutton); break;
-						case Button3: key::state(key::rbutton) = 0; app.release(key::rbutton); break;
+						case Button1: *key::lbutton = false; if(app->released) app->released(key::lbutton); break;
+						case Button2: *key::mbutton = false; if(app->released) app->released(key::mbutton); break;
+						case Button3: *key::rbutton = false; if(app->released) app->released(key::rbutton); break;
 					}
 					break;
 
 				case ConfigureNotify:
-					app.set(0, 0, event.xconfigure.width, event.xconfigure.height);
-					app.resize();
+					app->width = event.xconfigure.width;
+					app->height = event.xconfigure.height;
+					if(app->resized) app->resized();
 					break;
 
-				case MotionNotify: m = point(event.xmotion.x, app.height() - event.xmotion.y); app.pointermove(); break;
-				case ClientMessage: if((Atom)event.xclient.data.l[0] == atom["WM_DELETE_WINDOW"]) app.close(); break;
-				case MapNotify: app.active = true; break;
-				case UnmapNotify: app.active = false; break;
-				case DestroyNotify: app.close(); break;
+				case MotionNotify: app->pointers[0] = { (float)event.xbutton.x, (float)event.xbutton.y }; if(app->pointermoved) app->pointermoved(); break;
+				case ClientMessage: if((Atom)event.xclient.data.l[0] == atom["WM_DELETE_WINDOW"]) clear(); break;
+				case VisibilityNotify: visible = event.xvisibility.state != VisibilityFullyObscured; break;
+				case DestroyNotify: wnd = 0; break;
 			}
 		}
 
-		void init(int& w, int& h)
+		void init(int w, int h)
 		{
 			dpy = XOpenDisplay(0);
 			im = XOpenIM(dpy, 0, 0, 0);
@@ -271,12 +274,12 @@ namespace wheel
 			NumLockMask = numlock();
 
 			XSync(dpy, 0);
-			events::add(fd(), nextevent);
+			events::add(ConnectionNumber(dpy), nextevent);
 
 			int r = 1, g = 1, b = 1, a = 1, dpt = 16, stencil = 0;
 			int attr[] = { GLX_RGBA, GLX_DOUBLEBUFFER, True,
 				GLX_RED_SIZE, r, GLX_GREEN_SIZE, g, GLX_BLUE_SIZE, b, GLX_ALPHA_SIZE, a, GLX_DEPTH_SIZE, dpt, GLX_STENCIL_SIZE, stencil, 0 };
-			if(XVisualInfo *vi = glXChooseVisual(dpy, screen(), attr))
+			if(XVisualInfo *vi = glXChooseVisual(dpy, DefaultScreen(dpy), attr))
 			{
 				vis = vi->visual;
 				ctx = glXCreateContext(dpy, vi, 0, True);
@@ -285,47 +288,34 @@ namespace wheel
 
 			XSetWindowAttributes wa;
 			wa.border_pixel = 0;
-			wa.colormap = XCreateColormap(dpy, root(), vis, AllocNone);
+			wa.colormap = XCreateColormap(dpy, RootWindow(dpy, DefaultScreen(dpy)), vis, AllocNone);
 			wa.event_mask = KeyPressMask|KeyReleaseMask|PointerMotionMask|ButtonPressMask|ButtonReleaseMask|
-				StructureNotifyMask|ExposureMask|FocusChangeMask|VisibilityChangeMask;
+				StructureNotifyMask|FocusChangeMask|VisibilityChangeMask;
 
-			if(!w) w = xlib::width();
-			if(!h) h = xlib::height();
-			wnd = XCreateWindow(dpy, root(), 0,0,w,h, 0, depth(), InputOutput, vis, CWBorderPixel|CWColormap|CWEventMask, &wa);
+			if(!w) w = DisplayWidth(dpy, DefaultScreen(dpy));
+			if(!h) h = DisplayHeight(dpy, DefaultScreen(dpy));
+			wnd = XCreateWindow(dpy, RootWindow(dpy, DefaultScreen(dpy)), 0, 0, w, h, 0, DefaultDepth(dpy, DefaultScreen(dpy)),
+								InputOutput, vis, CWBorderPixel|CWColormap|CWEventMask, &wa);
 			if(!wnd) throw std::runtime_error("Failed to create window");
 
 			XSetWMProtocols(dpy, wnd, &atom["WM_DELETE_WINDOW"], 1);
 		}
-
-		void clear()
-		{
-			if(ctx) { glXMakeCurrent(dpy, 0, 0); glXDestroyContext(dpy, ctx); ctx = 0; }
-			if(dpy) { events::remove(fd()); XSync(dpy, 0); XDestroyIC(ic); XCloseIM(im); XCloseDisplay(dpy); dpy = 0; }
-		}
 	}
+
+	application::application(const string& s, int w, int h) { assert(!app); app = this; xlib::init(w, h); title(s); }
+	application::~application() { xlib::clear(); app = 0; }
 
 	void application::process(int timeout)
 	{
-		while(xlib::dpy && xlib::qlen()) xlib::nextevent();
-		while(int r = poll(events::fds, events::n, timeout))
-		{
-			if(r < 0) break;
-			for(int i = 0; i < events::n; ++i) if(events::fds[i].revents) { events::fns[i](); events::fds[i].revents = 0; }
-			timeout = 0;
-		}
+		while(xlib::dpy && QLength(xlib::dpy)) xlib::nextevent();
+		events::process(timeout);
 	}
 
-	bool application::alive() const { return xlib::dpy && xlib::ctx; }
-
-	void application::init(const string& s, int w, int h)
-	{
-		xlib::init(w,h);
-		set(0,0,w,h);
-		title(s);
-	}
-
-	int application::pointercount(int) const { return *key::lbutton; }
-	point application::pointer(int, int) const { return xlib::m; }
+	bool application::alive() const { return xlib::wnd; }
+	bool application::visible() const { return xlib::visible; }
+	int application::orientation() const { return 1; }
+	void application::fullscreen(bool b) { xlib::fullscreen(b); }
+	void application::togglefullscreen() { xlib::fullscreen(2); }
 	void application::close() { xlib::clear(); }
 
 	void application::title(const string& s)
@@ -333,48 +323,26 @@ namespace wheel
 		XChangeProperty(xlib::dpy, xlib::wnd, xlib::atom["_NET_WM_NAME"], xlib::atom["UTF8_STRING"], 8, PropModeReplace, (uint8_t*)s.data(), s.size());
 	}
 
-	bool application::show(bool b)
+	void application::show()
 	{
-		if(b)
-		{
-			glXMakeCurrent(xlib::dpy, xlib::wnd, xlib::ctx);
-			XMapWindow(xlib::dpy, xlib::wnd);
-			XFlush(xlib::dpy);
-		}
-		else
-		{
-			glXMakeCurrent(xlib::dpy, 0, 0);
-			XUnmapWindow(xlib::dpy, xlib::wnd);
-		}
-		return widget::show(b);
+		glXMakeCurrent(xlib::dpy, xlib::wnd, xlib::ctx);
+		XMapWindow(xlib::dpy, xlib::wnd);
+		XFlush(xlib::dpy);
 	}
 
-	void application::update() { widget::update(); }
-	void application::fullscreen(bool b) { xlib::fullscreen(b); }
-	void application::togglefullscreen() { xlib::fullscreen(2); }
-	void application::minimize() {}
-	void application::draw() { glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT); widget::draw(); flip(); }
+	void application::hide()
+	{
+//		glXMakeCurrent(xlib::dpy, 0, 0);
+//		XUnmapWindow(xlib::dpy, xlib::wnd);
+	}
+
 	void application::flip() { glXSwapBuffers(xlib::dpy, xlib::wnd); }
 
-	int application::orientation() const { return 1; }
-	void application::destroy() {}
-
-	string application::resource(const string& name)
+	string resource(const string& name)
 	{
 		ifstream f(name, ios::binary);
 		return string(istreambuf_iterator<char>(f), istreambuf_iterator<char>());
 	}
 
-	struct nativeaudiotrack {};
-
-	audiotrack::audiotrack() : native(new nativeaudiotrack) {}
-	audiotrack::~audiotrack() { clear(); }
-	bool audiotrack::operator!() const { return 1; }
-	void audiotrack::clear() {}	
-	void audiotrack::set(string&&) {}
-	void audiotrack::setvolume(int v) {}
-	void audiotrack::play(bool) {}
-	bool audiotrack::isplaying(){ return 0; }
-
-	application app;
+	application *app = 0;
 }

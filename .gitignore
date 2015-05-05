@@ -4,8 +4,5 @@
 *.exe
 *.swp
 /.build
-/libs
-/example
-/example.exe
-/example-debug.apk
+/example*
 /glwheel*

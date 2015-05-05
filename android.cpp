@@ -1,8 +1,6 @@
 #pragma once
 #include <EGL/egl.h>
 #include <GLES2/gl2.h>
-#include <SLES/OpenSLES.h>
-#include <SLES/OpenSLES_Android.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -22,13 +20,14 @@
 #include <android/bitmap.h>
 #include "log.h"
 #include "app.hpp"
-#include "audio.hpp"
 
 extern int main();
 
 namespace wheel
 {
 	using namespace std;
+
+	application *app = 0;
 
 	namespace events
 	{
@@ -42,89 +41,89 @@ namespace wheel
 
 	namespace android
 	{
-		constexpr const key::type key[] =
+		constexpr const key key[] =
 		{
 			key::unknown,
-			key::unknown,	// AKEYCODE_SOFT_LEFT       = 1,
-			key::unknown,	// AKEYCODE_SOFT_RIGHT      = 2,
-			key::home,		// AKEYCODE_HOME            = 3,
-			key::esc,		// AKEYCODE_BACK            = 4,
-			key::unknown,	// AKEYCODE_CALL            = 5,
-			key::unknown,	// AKEYCODE_ENDCALL         = 6,
+			key::lsuper,		// AKEYCODE_SOFT_LEFT       = 1,
+			key::rsuper,		// AKEYCODE_SOFT_RIGHT      = 2,
+			key::home,			// AKEYCODE_HOME            = 3,
+			key::esc,			// AKEYCODE_BACK            = 4,
+			key::call,			// AKEYCODE_CALL            = 5,
+			key::endcall,		// AKEYCODE_ENDCALL         = 6,
 			key::n0, key::n1, key::n2, key::n3, key::n4, key::n5, key::n6, key::n7, key::n8, key::n9,	// AKEYCODE_0 = 7 .. AKEYCODE_9 = 16,
-			key::unknown,	// AKEYCODE_STAR            = 17,
-			key::unknown,	// AKEYCODE_POUND           = 18,
-			key::up,		// AKEYCODE_DPAD_UP         = 19,
-			key::down,		// AKEYCODE_DPAD_DOWN       = 20,
-			key::left,		// AKEYCODE_DPAD_LEFT       = 21,
-			key::right,		// AKEYCODE_DPAD_RIGHT      = 22,
-			key::center,	// AKEYCODE_DPAD_CENTER     = 23,
-			key::volumeup,	// AKEYCODE_VOLUME_UP       = 24,
-			key::volumedown,// AKEYCODE_VOLUME_DOWN     = 25,
-			key::power,		// AKEYCODE_POWER           = 26,
-			key::camera,	// AKEYCODE_CAMERA          = 27,
-			key::clear,		// AKEYCODE_CLEAR           = 28,
+			key::star,			// AKEYCODE_STAR            = 17,
+			key::pound,			// AKEYCODE_POUND           = 18,
+			key::up,			// AKEYCODE_DPAD_UP         = 19,
+			key::down,			// AKEYCODE_DPAD_DOWN       = 20,
+			key::left,			// AKEYCODE_DPAD_LEFT       = 21,
+			key::right,			// AKEYCODE_DPAD_RIGHT      = 22,
+			key::center,		// AKEYCODE_DPAD_CENTER     = 23,
+			key::volumeup,		// AKEYCODE_VOLUME_UP       = 24,
+			key::volumedown,	// AKEYCODE_VOLUME_DOWN     = 25,
+			key::power,			// AKEYCODE_POWER           = 26,
+			key::camera,		// AKEYCODE_CAMERA          = 27,
+			key::clear,			// AKEYCODE_CLEAR           = 28,
 			key::a, key::b, key::c, key::d, key::e, key::f, key::g, key::h, key::i, key::j, key::k, key::l, key::m,	// AKEYCODE_A = 29,
 			key::n, key::o, key::p, key::q, key::r, key::s, key::t, key::u, key::v, key::w, key::x, key::y, key::z,	// AKEYCODE_Z = 54,
-			key::comma,		// AKEYCODE_COMMA           = 55,
-			key::period,	// AKEYCODE_PERIOD          = 56,
-			key::unknown,	// AKEYCODE_ALT_LEFT        = 57,
-			key::unknown,	// AKEYCODE_ALT_RIGHT       = 58,
-			key::unknown,	// AKEYCODE_SHIFT_LEFT      = 59,
-			key::unknown,	// AKEYCODE_SHIFT_RIGHT     = 60,
-			key::tab,		// AKEYCODE_TAB             = 61,
-			key::space,		// AKEYCODE_SPACE           = 62,
-			key::unknown,	// AKEYCODE_SYM             = 63,
-			key::unknown,	// AKEYCODE_EXPLORER        = 64,
-			key::unknown,	// AKEYCODE_ENVELOPE        = 65,
-			key::enter,		// AKEYCODE_ENTER           = 66,
-			key::del,		// AKEYCODE_DEL             = 67,
-			key::grave,		// AKEYCODE_GRAVE           = 68,
-			key::minus,		// AKEYCODE_MINUS           = 69,
-			key::equals,	// AKEYCODE_EQUALS          = 70,
-			key::lbracket,	// AKEYCODE_LEFT_BRACKET    = 71,
-			key::rbracket,	// AKEYCODE_RIGHT_BRACKET   = 72,
-			key::backslash,	// AKEYCODE_BACKSLASH       = 73,
-			key::semicolon,	// AKEYCODE_SEMICOLON       = 74,
-			key::apostrophe,// AKEYCODE_APOSTROPHE      = 75,
-			key::slash,		// AKEYCODE_SLASH           = 76,
-			key::unknown,	// AKEYCODE_AT              = 77,
-			key::unknown,	// AKEYCODE_NUM             = 78,
-			key::unknown,	// AKEYCODE_HEADSETHOOK     = 79,
-			key::unknown,	// AKEYCODE_FOCUS           = 80,   // *Camera* focus
-			key::plus,		// AKEYCODE_PLUS            = 81,
-			key::menu,		// AKEYCODE_MENU            = 82,
-			key::unknown,	// AKEYCODE_NOTIFICATION    = 83,
-			key::unknown,	// AKEYCODE_SEARCH          = 84,
-			key::play,		// AKEYCODE_MEDIA_PLAY_PAUSE= 85,
-			key::stop,		// AKEYCODE_MEDIA_STOP      = 86,
-			key::next,		// AKEYCODE_MEDIA_NEXT      = 87,
-			key::prev,		// AKEYCODE_MEDIA_PREVIOUS  = 88,
-			key::rewind,	// AKEYCODE_MEDIA_REWIND    = 89,
-			key::forward,	// AKEYCODE_MEDIA_FAST_FORWARD = 90,
-			key::mute,		// AKEYCODE_MUTE            = 91,
-			key::pageup,	// AKEYCODE_PAGE_UP         = 92,
-			key::pagedown,	// AKEYCODE_PAGE_DOWN       = 93,
-			key::unknown,	// AKEYCODE_PICTSYMBOLS     = 94,
-			key::unknown,	// AKEYCODE_SWITCH_CHARSET  = 95,
-			key::unknown,	// AKEYCODE_BUTTON_A        = 96,
-			key::unknown,	// AKEYCODE_BUTTON_B        = 97,
-			key::unknown,	// AKEYCODE_BUTTON_C        = 98,
-			key::unknown,	// AKEYCODE_BUTTON_X        = 99,
-			key::unknown,	// AKEYCODE_BUTTON_Y        = 100,
-			key::unknown,	// AKEYCODE_BUTTON_Z        = 101,
-			key::unknown,	// AKEYCODE_BUTTON_L1       = 102,
-			key::unknown,	// AKEYCODE_BUTTON_R1       = 103,
-			key::unknown,	// AKEYCODE_BUTTON_L2       = 104,
-			key::unknown,	// AKEYCODE_BUTTON_R2       = 105,
-			key::unknown,	// AKEYCODE_BUTTON_THUMBL   = 106,
-			key::unknown,	// AKEYCODE_BUTTON_THUMBR   = 107,
-			key::unknown,	// AKEYCODE_BUTTON_START    = 108,
-			key::unknown,	// AKEYCODE_BUTTON_SELECT   = 109,
-			key::unknown,	// AKEYCODE_BUTTON_MODE     = 110,
+			key::comma,			// AKEYCODE_COMMA           = 55,
+			key::period,		// AKEYCODE_PERIOD          = 56,
+			key::lalt,			// AKEYCODE_ALT_LEFT        = 57,
+			key::ralt,			// AKEYCODE_ALT_RIGHT       = 58,
+			key::lshift,		// AKEYCODE_SHIFT_LEFT      = 59,
+			key::rshift,		// AKEYCODE_SHIFT_RIGHT     = 60,
+			key::tab,			// AKEYCODE_TAB             = 61,
+			key::space,			// AKEYCODE_SPACE           = 62,
+			key::sym,			// AKEYCODE_SYM             = 63,
+			key::explorer,		// AKEYCODE_EXPLORER        = 64,
+			key::envelope,		// AKEYCODE_ENVELOPE        = 65,
+			key::enter,			// AKEYCODE_ENTER           = 66,
+			key::del,			// AKEYCODE_DEL             = 67,
+			key::grave,			// AKEYCODE_GRAVE           = 68,
+			key::minus,			// AKEYCODE_MINUS           = 69,
+			key::equals,		// AKEYCODE_EQUALS          = 70,
+			key::lbracket,		// AKEYCODE_LEFT_BRACKET    = 71,
+			key::rbracket,		// AKEYCODE_RIGHT_BRACKET   = 72,
+			key::backslash,		// AKEYCODE_BACKSLASH       = 73,
+			key::semicolon,		// AKEYCODE_SEMICOLON       = 74,
+			key::apostrophe,	// AKEYCODE_APOSTROPHE      = 75,
+			key::slash,			// AKEYCODE_SLASH           = 76,
+			key::at,			// AKEYCODE_AT              = 77,
+			key::num,			// AKEYCODE_NUM             = 78,
+			key::headset,		// AKEYCODE_HEADSETHOOK     = 79,
+			key::focus,			// AKEYCODE_FOCUS           = 80,   // *Camera* focus
+			key::plus,			// AKEYCODE_PLUS            = 81,
+			key::menu,			// AKEYCODE_MENU            = 82,
+			key::notify,		// AKEYCODE_NOTIFICATION    = 83,
+			key::search,		// AKEYCODE_SEARCH          = 84,
+			key::play,			// AKEYCODE_MEDIA_PLAY_PAUSE= 85,
+			key::stop,			// AKEYCODE_MEDIA_STOP      = 86,
+			key::next,			// AKEYCODE_MEDIA_NEXT      = 87,
+			key::prev,			// AKEYCODE_MEDIA_PREVIOUS  = 88,
+			key::rewind,		// AKEYCODE_MEDIA_REWIND    = 89,
+			key::forward,		// AKEYCODE_MEDIA_FAST_FORWARD = 90,
+			key::mute,			// AKEYCODE_MUTE            = 91,
+			key::pageup,		// AKEYCODE_PAGE_UP         = 92,
+			key::pagedown,		// AKEYCODE_PAGE_DOWN       = 93,
+			key::picsym,		// AKEYCODE_PICTSYMBOLS     = 94,
+			key::switchcharset,	// AKEYCODE_SWITCH_CHARSET  = 95,
+			key::ajoy,			// AKEYCODE_BUTTON_A        = 96,
+			key::bjoy,			// AKEYCODE_BUTTON_B        = 97,
+			key::cjoy,			// AKEYCODE_BUTTON_C        = 98,
+			key::xjoy,			// AKEYCODE_BUTTON_X        = 99,
+			key::yjoy,			// AKEYCODE_BUTTON_Y        = 100,
+			key::zjoy,			// AKEYCODE_BUTTON_Z        = 101,
+			key::l1joy,			// AKEYCODE_BUTTON_L1       = 102,
+			key::r1joy,			// AKEYCODE_BUTTON_R1       = 103,
+			key::l2joy,			// AKEYCODE_BUTTON_L2       = 104,
+			key::r2joy,			// AKEYCODE_BUTTON_R2       = 105,
+			key::lthumb,		// AKEYCODE_BUTTON_THUMBL   = 106,
+			key::rthumb,		// AKEYCODE_BUTTON_THUMBR   = 107,
+			key::start,			// AKEYCODE_BUTTON_START    = 108,
+			key::select,		// AKEYCODE_BUTTON_SELECT   = 109,
+			key::mode,			// AKEYCODE_BUTTON_MODE     = 110,
 		};
 
-		struct cmd { enum : uint8_t { setinput, setwindow, focus, unfocus, cfgchanged, lowmem, resume, stop, destroy }; };
+		enum class cmd : uint8_t { setinput, setwindow, focus, unfocus, cfgchanged, lowmem, resume, stop, destroy, nocmd = 0xff };
 
 		ANativeActivity *act;
 		std::mutex mutex;
@@ -147,22 +146,21 @@ namespace wheel
 		EGLSurface surface;
 		EGLConfig glconfig;
 		size_t mn[2] = {0,0};
-		point m[2][32];
-		bool alive;
+		bool alive, visible;
 		int orientation;
 
 		JNIEnv *env; // native thread (C++ side)
 		struct { jclass cls; jmethodID moveToBack, fullscreen, screenOrientation; } WheelActivity;
 
-		int8_t readcmd()
+		cmd readcmd()
 		{
-			int8_t cmd;
-			if(read(msgpipe[0], &cmd, sizeof(cmd)) == sizeof(cmd)) return cmd;
+			cmd c;
+			if(read(msgpipe[0], &c, sizeof(c)) == sizeof(c)) return c;
 			logerr("No data on command pipe!");
-			return -1;
+			return cmd::nocmd;
 		}
 
-		void writecmd(int8_t cmd) { if(write(msgpipe[1], &cmd, sizeof(cmd)) != sizeof(cmd)) logerr("write failed: %s", strerror(errno)); }
+		void writecmd(cmd c) { if(write(msgpipe[1], &c, sizeof(c)) != sizeof(c)) logerr("write failed: %s", strerror(errno)); }
 
 		void create(ANativeActivity *a)
 		{
@@ -226,50 +224,52 @@ namespace wheel
 				switch(AInputEvent_getType(event))
 				{
 					case AINPUT_EVENT_TYPE_KEY:
-						if(key::type k = android::key[AKeyEvent_getKeyCode(event)])
+					{
+						wheel::key k = android::key[AKeyEvent_getKeyCode(event)];
+						switch(AKeyEvent_getAction(event))
 						{
-							switch(AKeyEvent_getAction(event))
-							{
-								case AKEY_EVENT_ACTION_DOWN: key::state(k) = 1; app.press(k); break;
-								case AKEY_EVENT_ACTION_UP: key::state(k) = 0; app.release(k); break;
-							}
-							processed = 1;
+							case AKEY_EVENT_ACTION_DOWN: *k = true; if(app->pressed) app->pressed(k); break;
+							case AKEY_EVENT_ACTION_UP: *k = false; if(app->released) app->released(k); break;
 						}
+						processed = 1;
 						break;
+					}
 
 					case AINPUT_EVENT_TYPE_MOTION:
 					{
-						mn[1] = mn[0];
-						memcpy(m[1], m[0], sizeof(m[0]));
-						mn[0] = std::min((size_t)32, AMotionEvent_getPointerCount(event));
-						int action = AMotionEvent_getAction(event) & AMOTION_EVENT_ACTION_MASK;
-
-						for(size_t i = 0; i < mn[0]; ++i) m[0][i] = point(AMotionEvent_getX(event, i), app.height() - AMotionEvent_getY(event, i));
-						app.pointermove();
-						if(mn[0] == 1)
+						int prevcount = app->pointercount;
+						pointer prevpointers[32];
+						memcpy(prevpointers, app->pointers, sizeof(app->pointers));
+						app->pointercount = std::min((size_t)32, AMotionEvent_getPointerCount(event));
+						for(size_t i = 0; i < app->pointercount; ++i) app->pointers[i] = { AMotionEvent_getX(event, i), AMotionEvent_getY(event, i) };
+						if(app->pointermoved) app->pointermoved();
+						if(app->pointercount == 1)
 						{
-							switch(action)
+							switch(AMotionEvent_getAction(event) & AMOTION_EVENT_ACTION_MASK)
 							{
 								case AMOTION_EVENT_ACTION_DOWN:
 									if(!*key::lbutton)
 									{
-										key::state(key::lbutton) = 1;
-										app.press(key::lbutton);
+										*key::lbutton = true;
+										if(app->pressed) app->pressed(key::lbutton);
 									}
 									break;
 								case AMOTION_EVENT_ACTION_UP:
-									key::state(key::lbutton) = 0;
-									app.release(key::lbutton);
-									mn[0] = 0;
+									*key::lbutton = false;
+									if(app->released) app->released(key::lbutton);
+									app->pointercount = 0;
 									break;
 							}
 						}
-						if(mn[0] == 2 && mn[1] == 2)
+						if(app->pointercount == 2 && prevcount == 2)
 						{
-							point d = m[0][1] - m[0][0], pd = m[1][1] - m[1][0];
-							float diff2 = ~pd - ~d;
+							int dx = app->pointers[0].x - app->pointers[1].x;
+							int dy = app->pointers[0].y - app->pointers[1].y;
+							int pdx = prevpointers[0].x - prevpointers[1].x;
+							int pdy = prevpointers[0].y - prevpointers[1].y;
+							float diff2 = pdx*pdx + pdy*pdy - dx*dx - dy*dy;
 							float absdiff = sqrt(abs(diff2));
-							if(absdiff > 16) app.scroll(diff2*4/absdiff/std::min(app.width(),app.height()));
+							if(absdiff > 16) if(app->scrolled) app->scrolled(diff2*4/absdiff/std::min(app->width, app->height));
 						}
 						processed = 1;
 						break;
@@ -286,7 +286,7 @@ namespace wheel
 			{
 				ASensorEvent event;
 				while(ASensorEventQueue_getEvents(sensorEventQueue, &event, 1) > 0)
-					app.accel(event.acceleration.x, event.acceleration.y, event.acceleration.z);
+					if(app->accel) app->accel(event.acceleration.x, event.acceleration.y, event.acceleration.z);
 				float magnitude = event.acceleration.x*event.acceleration.x + event.acceleration.y*event.acceleration.y;
 				if(magnitude*4 > event.acceleration.z*event.acceleration.z)
 				{
@@ -313,16 +313,15 @@ namespace wheel
 
 			eglMakeCurrent(dpy, surface, surface, context);
 			loginf("%s", (const char*)glGetString(GL_VERSION));
-			app.update();
-			app.active = 1;
-			app.reload();
+			visible = 1;
+			if(app->loaded) app->loaded();
 		}
 
 		void clearsurface()
 		{
 			logdbg("clearsurface()");
-			app.active = 0;
-			app.clear();
+			visible = 0;
+			if(app->cleared) app->cleared();
 			eglMakeCurrent(dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 			eglDestroySurface(dpy, surface);
 			if(context != EGL_NO_CONTEXT) eglDestroyContext(dpy, context);
@@ -343,9 +342,9 @@ namespace wheel
 			cond.notify_all();
 		}
 
-		int8_t processcmd()
+		cmd processcmd()
 		{
-			int8_t c = readcmd();
+			cmd c = readcmd();
 			switch(c)
 			{
 				case cmd::setinput:
@@ -374,13 +373,13 @@ namespace wheel
 				}
 
 				case cmd::resume:
-					if(context != EGL_NO_CONTEXT) app.active = 1;
-					app.resumed();
+					if(context != EGL_NO_CONTEXT) visible = 1;
+					if(app->resumed) app->resumed();
 					break;
 
 				case cmd::stop:
-					app.active = 0;
-					app.paused();
+					visible = 0;
+					if(app->paused) app->paused();
 					break;
 
 				case cmd::focus:
@@ -392,7 +391,7 @@ namespace wheel
 					break;
 
 				case cmd::unfocus:
-//					app.active = 0;
+//					app->visible = 0;
 					if(accelerometer) ASensorEventQueue_disableSensor(sensorEventQueue, accelerometer);
 					break;
 
@@ -403,6 +402,8 @@ namespace wheel
 				case cmd::destroy:
 					alive = 0;
 					break;
+
+				default: break;
 			}
 			return c;
 		}
@@ -462,38 +463,6 @@ namespace wheel
 		inline void* onSaveInstanceState(ANativeActivity*, size_t*) { return 0; }
 	}
 
-	namespace sl
-	{
-		inline SLEngineItf engine()
-		{
-			static SLObjectItf obj = 0;
-			static SLEngineItf instance;
-			if(!obj)
-			{
-				assert(slCreateEngine(&obj, 0, 0, 0, 0, 0) == SL_RESULT_SUCCESS);
-				assert((*obj)->Realize(obj, SL_BOOLEAN_FALSE) == SL_RESULT_SUCCESS);
-				// get the engine interface, which is needed in order to create other objects
-				assert((*obj)->GetInterface(obj, SL_IID_ENGINE, &instance) == SL_RESULT_SUCCESS);
-			}
-			return instance;
-		}
-
-		inline SLObjectItf mix()
-		{
-			static SLObjectItf obj = 0;
-			SLEngineItf eng = engine();
-			if(!obj)
-			{
-				// create output mix, with environmental reverb specified as a non-required interface
-				const SLInterfaceID ids[] = { SL_IID_VOLUME };
-				const SLboolean req[] = { SL_BOOLEAN_FALSE };
-				assert((*eng)->CreateOutputMix(eng, &obj, 1, ids, req) == SL_RESULT_SUCCESS);
-				assert((*obj)->Realize(obj, SL_BOOLEAN_FALSE) == SL_RESULT_SUCCESS);
-			}
-			return obj;
-		}
-	}
-
 	void events::add(int fd, function<void()> fn)
 	{
 		int i = 2;
@@ -511,6 +480,21 @@ namespace wheel
 		ALooper_removeFd(android::looper, fd);
 	}
 
+	application::application(const string&, int, int)
+	{
+		assert(!app);
+		app = this;
+		logdbg("application::application");
+		android::init();
+		EGLint w,h;
+		eglQuerySurface(android::dpy, android::surface, EGL_WIDTH, &w);
+		eglQuerySurface(android::dpy, android::surface, EGL_HEIGHT, &h);
+		app->width = w;
+		app->height = h;
+	}
+
+	application::~application() { android::clear(); app = 0; }
+
 	void application::process(int timeout)
 	{
 		int i, events;
@@ -518,62 +502,17 @@ namespace wheel
 	}
 
 	bool application::alive() const { return android::alive; }
-
-	void application::init(const string&, int, int)
-	{
-		logdbg("application::init");
-		android::init();
-		set(0,0,0,0);
-		EGLint w,h;
-		eglQuerySurface(android::dpy, android::surface, EGL_WIDTH, &w);
-		eglQuerySurface(android::dpy, android::surface, EGL_HEIGHT, &h);
-		set(0,0,w,h);
-	}
-
-	void application::destroy()
-	{
-		children.clear();
-		resumed.clear(); paused.clear();
-		resized.clear();
-		keycoded.clear();
-		scrolled.clear();
-		pointermoved.clear();
-		pressed.clear(); released.clear();
-		accel.clear();
-		android::clear();
-	}
-
+	bool application::visible() const { return android::visible; }
+	int application::orientation() const { return android::orientation; }
 	void application::title(const string&) {}
 	void application::fullscreen(bool) { android::fullscreen(); }
 	void application::togglefullscreen() {}
-	void application::minimize() { android::movetoback(); }
+	void application::hide() { android::movetoback(); }
+	void application::show() {}
 	void application::flip() { eglSwapBuffers(android::dpy, android::surface); }
-	int application::pointercount(int time) const { return android::mn[time]; }
-	point application::pointer(int n, int time) const { return android::m[time][n]; }
+	//void application::close() { logdbg("application::close()"); ANativeActivity_finish(android::act); }
 
-	void application::update()
-	{
-		if(active)
-		{
-			EGLint w,h;
-			eglQuerySurface(android::dpy, android::surface, EGL_WIDTH, &w);
-			eglQuerySurface(android::dpy, android::surface, EGL_HEIGHT, &h);
-			if(width() != w || height() != h)
-			{
-				set(0,0,w,h);
-				logdbg("resize %d %d", w, h);
-				resize();
-			}
-		}
-		widget::update();
-	}
-
-	bool application::show(bool) { return active; }
-	void application::draw() { glClear(GL_COLOR_BUFFER_BIT); widget::draw(); flip(); }
-	void application::close() { logdbg("application::close()"); ANativeActivity_finish(android::act); }
-	int application::orientation() const { return android::orientation; }
-
-	string loadasset(const string& name)
+	string resource(const string& name)
 	{
 		if(AAsset *a = AAssetManager_open(android::act->assetManager, name.c_str(), AASSET_MODE_BUFFER))
 		{
@@ -584,75 +523,6 @@ namespace wheel
 		logerr("Failed to load asset: %s", name.c_str());
 		return string();
 	}
-
-	string application::resource(const string& name) { return loadasset(name); }
-
-	struct nativeaudiotrack
-	{
-		SLObjectItf obj = 0;
-		SLPlayItf playitf;
-		SLVolumeItf volumeitf;
-		SLSeekItf seekitf;
-
-		void clear() { if(obj) { (*obj)->Destroy(obj); obj = 0; } }
-
-		void set(string&& fn)
-		{
-			AAsset* asset = AAssetManager_open(android::act->assetManager, fn.c_str(), AASSET_MODE_UNKNOWN);
-			off_t start, length;
-			int fd = AAsset_openFileDescriptor(asset, &start, &length);
-			assert(0 <= fd);
-			AAsset_close(asset);
-			// open asset as file descriptor
-
-			// configure audio source
-			SLDataLocator_AndroidFD loc_fd = { SL_DATALOCATOR_ANDROIDFD, fd, start, length };
-			SLDataFormat_MIME format_mime = { SL_DATAFORMAT_MIME, 0, SL_CONTAINERTYPE_UNSPECIFIED };
-			SLDataSource audioSrc = {&loc_fd, &format_mime};
-
-			// configure audio sink
-			SLObjectItf outputMix = sl::mix();
-			SLDataLocator_OutputMix loc_outmix = { SL_DATALOCATOR_OUTPUTMIX, outputMix };
-			SLDataSink audioSnk = { &loc_outmix, 0 };
-
-			// create audio player
-			const SLInterfaceID ids[] = { SL_IID_PLAY, SL_IID_SEEK, SL_IID_VOLUME };
-			const SLboolean req[] = { SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE };
-			SLEngineItf eng = sl::engine();
-			assert((*eng)->CreateAudioPlayer(eng, &obj, &audioSrc, &audioSnk, 3, ids, req) == SL_RESULT_SUCCESS);
-			assert((*obj)->Realize(obj, SL_BOOLEAN_FALSE) == SL_RESULT_SUCCESS);
-			assert((*obj)->GetInterface(obj, SL_IID_PLAY, &playitf) == SL_RESULT_SUCCESS);
-			assert((*obj)->GetInterface(obj, SL_IID_SEEK, &seekitf) == SL_RESULT_SUCCESS);
-			assert((*obj)->GetInterface(obj, SL_IID_VOLUME, &volumeitf) == SL_RESULT_SUCCESS);
-			assert((*seekitf)->SetLoop(seekitf, SL_BOOLEAN_TRUE, 0, SL_TIME_UNKNOWN) == SL_RESULT_SUCCESS);
-		}
-
-		void setvolume(int v)
-		{
-			assert((*volumeitf)->SetVolumeLevel(volumeitf, v - 1000) == SL_RESULT_SUCCESS);
-		}
-
-		bool isplaying() const
-		{
-			if(!obj) return 0;
-			SLuint32 state;
-			assert((*playitf)->GetPlayState(playitf, &state) == SL_RESULT_SUCCESS);
-			return state == SL_PLAYSTATE_PLAYING;
-		}
-
-		void play(bool b = 1) { assert((*playitf)->SetPlayState(playitf, b ? SL_PLAYSTATE_PLAYING : SL_PLAYSTATE_PAUSED) == SL_RESULT_SUCCESS); }
-	};
-
-	audiotrack::audiotrack() : native(new nativeaudiotrack) {}
-	audiotrack::~audiotrack() { clear(); }
-	bool audiotrack::operator!() const { return !native->obj; }
-	void audiotrack::clear() { native->clear(); }
-	void audiotrack::set(string&& s) { native->set(forward<string>(s)); }
-	void audiotrack::setvolume(int v) { native->setvolume(v); }
-	void audiotrack::play(bool b) { native->play(b); }
-	bool audiotrack::isplaying() { return native->isplaying(); }
-
-	application app;
 }
 
 void ANativeActivity_onCreate(ANativeActivity* activity, void*, size_t)

@@ -1,38 +1,21 @@
-#include "impl.hpp"
+#include "impl.hpp"						// include to one of your .cpp files
 using namespace wheel;
-
-struct example : widget
-{
-	void resize() { set(0,0,parent->width(),parent->height()); }
-
-	void press(uint8_t k)
-	{
-		switch(k)
-		{
-			case key::lbutton: break; // left mouse button or touch screen
-			case key::f11: app.togglefullscreen(); break;
-			case key::esc: app.close(); break;
-		}
-	}
-
-	void draw()
-	{
-		glClearColor((float)pointer().x/width(), 0, (float)pointer().y/height(), 1);
-		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
-	}
-};
 
 int main()
 {
-	app.init("glwheel");
-	example wnd;
-	app.add(&wnd);
-	app.show(true);
-	while(app.alive())
+	application app("glwheel example");	// UTF-8 string are supported
+	app.pressed = [&](key k) { if(k == key::f11) app.togglefullscreen(); };
+	app.show();
+	while(app.alive())					// while not closed
 	{
-		if(app)			// if window is visible
-			app.draw();	// clear, draw children, swap buffers
-		app.process(100);
+		if(app.visible())				// draw only when visible
+		{
+			glClearColor(app.pointers[0].x/app.width, 0, app.pointers[0].y/app.height, 1);
+			glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+			app.flip();					// flips pages
+			app.process(0);				// processes events, argument is timeout
+		}
+		else app.process();				// default value is -1, means to wait for the next event
 	}
 	return 0;
 }
