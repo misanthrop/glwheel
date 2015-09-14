@@ -23,7 +23,7 @@ C++ header-only cross-platform OpenGL windowing and event handling.
 
 ## Hello World example
 
-### examble.cpp
+### example.cpp
 
 ```cpp
 #include "impl.hpp"					// include to one of your .cpp files
